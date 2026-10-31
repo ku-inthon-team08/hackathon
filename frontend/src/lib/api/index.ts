@@ -3,7 +3,7 @@ import { supabase } from "../supabase";
 import * as mock from "./mock";
 import * as remote from "./remote";
 
-// Real Supabase RPCs when NEXT_PUBLIC_SUPABASE_* are set, local mock data otherwise.
+// Real Supabase RPCs when NEXT_SUPABASE_* are set, local mock data otherwise.
 // ?state=loading|empty|error|stale in the URL always previews with mock data.
 function source() {
   if (!supabase) return mock;

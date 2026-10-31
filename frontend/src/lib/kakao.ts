@@ -2,7 +2,7 @@
 import type { NamedPlace } from "./api/types";
 import { MAP_BOUNDS } from "./location";
 
-export const KAKAO_KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
+export const KAKAO_KEY = process.env.NEXT_KAKAO_MAP_KEY;
 
 let sdk: Promise<true> | null = null;
 
