@@ -15,8 +15,6 @@ import type { DataStatus, MapLayers, Sensitivity } from "@/lib/api/types";
 import { useAsync } from "@/hooks/useAsync";
 
 const POLL_MS = 5 * 60 * 1000;
-// docs/api.md has no staleness rule beyond last_try_ok, so this is our own cut-off.
-const STALE_MIN = 30;
 
 const LAYERS: { value: Layer; label: string }[] = [
   { value: "load", label: "종합" },
@@ -32,7 +30,7 @@ function freshness(status?: DataStatus) {
   const age = Math.max(...ages);
   return {
     label: `${age}분 전 데이터`,
-    stale: age >= STALE_MIN || status.sources.some((s) => !s.last_try_ok),
+    stale: status.sources.some((s) => !s.last_try_ok),
   };
 }
 
