@@ -7,7 +7,16 @@ const MAX_SEGMENT_M = 40;
 const SIGMA_M = 70;
 // Below this the blur would be finer than the grid, so it speckles when zoomed out.
 const MIN_SIGMA_PX = 14;
-const MAX_ALPHA = 150;
+// Alpha uses the full 0-255 range and .heat-canvas sets the overall opacity. The canvas
+// stores colour multiplied by alpha, so a low alpha cap rounds faint edges to wrong hues
+// (a rim pixel came out pure red).
+const MAX_ALPHA = 255;
+// Fainter than this is mostly rounding noise, so leave it clear.
+const MIN_ALPHA = 6;
+// Diagonal hatch over places with no measurements.
+const HATCH_GAP = 10;
+// Any fixed point works: it pins the hatch to the map, so it doesn't jump on redraw.
+const HATCH_ORIGIN = { lng: 126.9, lat: 37.56 };
 // Keep colours on the same 0.33 / 0.66 cut-offs as the low / mid / high labels.
 const RAMP_LOW = 0.16;
 const RAMP_HIGH = 0.84;
@@ -82,13 +91,42 @@ export function heatRamp(low: string, mid: string, high: string) {
   return ramp;
 }
 
+function hatchPattern(context: CanvasRenderingContext2D, colour: string, view: HeatView) {
+  const tile = document.createElement("canvas");
+  tile.width = HATCH_GAP;
+  tile.height = HATCH_GAP;
+  const tileContext = tile.getContext("2d");
+  if (!tileContext) return null;
+  tileContext.strokeStyle = colour;
+  tileContext.lineWidth = 1;
+  tileContext.beginPath();
+  // One diagonal plus the two corner stubs, so tiles join into unbroken lines.
+  tileContext.moveTo(0, HATCH_GAP);
+  tileContext.lineTo(HATCH_GAP, 0);
+  tileContext.moveTo(-1, 1);
+  tileContext.lineTo(1, -1);
+  tileContext.moveTo(HATCH_GAP - 1, HATCH_GAP + 1);
+  tileContext.lineTo(HATCH_GAP + 1, HATCH_GAP - 1);
+  tileContext.stroke();
+  // Made after drawing: a pattern copies its tile when created.
+  const pattern = context.createPattern(tile, "repeat");
+  if (!pattern) return null;
+  const x = (HATCH_ORIGIN.lng - view.west) * view.pxPerLng;
+  const y = (view.north - HATCH_ORIGIN.lat) * view.pxPerLat;
+  pattern.setTransform(new DOMMatrix().translate(x % HATCH_GAP, y % HATCH_GAP));
+  return pattern;
+}
+
 // Gaussian kernel regression on a coarse grid: each cell shows the weighted average of the
 // roads around it. Summing instead would make any dense street look loud, however quiet.
+// With `hatch`, places with no roads to average get a diagonal hatch, so "no data" never
+// reads as "quiet".
 export function drawHeat(
   canvas: HTMLCanvasElement,
   points: HeatPoints,
   view: HeatView,
   ramp: Uint8ClampedArray,
+  hatch?: string,
 ) {
   const sigmaPx = Math.max(SIGMA_M / view.metersPerPx, MIN_SIGMA_PX);
   const sigmaM = sigmaPx * view.metersPerPx;
@@ -134,13 +172,15 @@ export function drawHeat(
   for (let at = 0; at < weights.length; at++) {
     const weight = weights[at];
     if (weight === 0) continue;
-    const shade = Math.round((totals[at] / weight) * 255);
+    // Fades out where there are no roads to average, instead of a hard edge.
+    const alpha = MAX_ALPHA * (1 - Math.exp(-weight / sigmaM));
+    if (alpha < MIN_ALPHA) continue;
+    const shade = Math.min(Math.max(Math.round((totals[at] / weight) * 255), 0), 255);
     const out = at * 4;
     image.data[out] = ramp[shade * 3];
     image.data[out + 1] = ramp[shade * 3 + 1];
     image.data[out + 2] = ramp[shade * 3 + 2];
-    // Fades out where there are no roads to average, instead of a hard edge.
-    image.data[out + 3] = MAX_ALPHA * (1 - Math.exp(-weight / sigmaM));
+    image.data[out + 3] = alpha;
   }
   gridContext.putImageData(image, 0, 0);
 
@@ -148,4 +188,22 @@ export function drawHeat(
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
   context.drawImage(grid, 0, 0, cols * cell, rows * cell);
+
+  if (!hatch) return;
+  // Hatch everything, cut it away as the heat comes in, then slide it under the heat.
+  const layer = document.createElement("canvas");
+  layer.width = canvas.width;
+  layer.height = canvas.height;
+  const layerContext = layer.getContext("2d");
+  const pattern = layerContext && hatchPattern(layerContext, hatch, view);
+  if (!layerContext || !pattern) return;
+  layerContext.fillStyle = pattern;
+  layerContext.fillRect(0, 0, layer.width, layer.height);
+  layerContext.globalCompositeOperation = "destination-out";
+  layerContext.imageSmoothingEnabled = true;
+  layerContext.imageSmoothingQuality = "high";
+  layerContext.drawImage(grid, 0, 0, cols * cell, rows * cell);
+  context.globalCompositeOperation = "destination-over";
+  context.drawImage(layer, 0, 0);
+  context.globalCompositeOperation = "source-over";
 }

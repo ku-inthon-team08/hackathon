@@ -2,7 +2,15 @@
 
 import { ChevronLeft, ChevronRight, Moon, Sun, Trees } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+} from "react";
 import { FeedbackSheet } from "@/components/FeedbackSheet";
 import { type Layer, type MapPlace, type MapRoute, SensoryMap } from "@/components/MapCanvas";
 import { PlaceSheet, type SheetTarget } from "@/components/PlaceSheet";
@@ -45,6 +53,65 @@ function areaSummary(layers: MapLayers | undefined, layer: Layer) {
   return LOAD_LABEL[levelOf(total / edges.length)];
 }
 
+// The panel can be dragged a little narrower than its default, never wider.
+const PANEL_MIN = 300;
+const PANEL_MAX = 380;
+const PANEL_WIDTH_KEY = "panel-width";
+
+const clampPanel = (width: number) => Math.min(Math.max(Math.round(width), PANEL_MIN), PANEL_MAX);
+
+function savedPanelWidth() {
+  try {
+    const saved = Number(localStorage.getItem(PANEL_WIDTH_KEY));
+    return saved ? clampPanel(saved) : PANEL_MAX;
+  } catch {
+    return PANEL_MAX;
+  }
+}
+
+// The panel's right edge: drag it, or focus it and use ←/→ (Home/End for the limits).
+function PanelResizer({ width, onResize }: { width: number; onResize: (width: number) => void }) {
+  return (
+    <div
+      className="panel-resizer"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="경로 패널 너비"
+      aria-controls={PANEL_ID}
+      aria-valuenow={width}
+      aria-valuemin={PANEL_MIN}
+      aria-valuemax={PANEL_MAX}
+      tabIndex={0}
+      onPointerDown={(event) => {
+        event.preventDefault();
+        const handle = event.currentTarget;
+        handle.setPointerCapture(event.pointerId);
+        // The panel starts at the window's left edge, so the pointer's x is the width.
+        const move = (e: PointerEvent) => onResize(clampPanel(e.clientX));
+        const stop = () => {
+          handle.removeEventListener("pointermove", move);
+          handle.removeEventListener("pointerup", stop);
+          handle.removeEventListener("pointercancel", stop);
+        };
+        handle.addEventListener("pointermove", move);
+        handle.addEventListener("pointerup", stop);
+        handle.addEventListener("pointercancel", stop);
+      }}
+      onKeyDown={(event) => {
+        const next = {
+          ArrowLeft: width - 10,
+          ArrowRight: width + 10,
+          Home: PANEL_MIN,
+          End: PANEL_MAX,
+        }[event.key];
+        if (next === undefined) return;
+        event.preventDefault();
+        onResize(clampPanel(next));
+      }}
+    />
+  );
+}
+
 function ThemeToggle() {
   const [theme, setTheme] = useTheme();
   const dark = theme === "dark";
@@ -84,11 +151,22 @@ function Home({
   const planner = usePlanner(sens, initialTo);
   const { plan, setPlan } = planner;
   const [panelOpen, setPanelOpen] = useState(true);
+  // Home only renders in the browser (HomeGate waits for storage), so reading here is safe.
+  const [panelWidth, setPanelWidthState] = useState(savedPanelWidth);
+
+  function setPanelWidth(width: number) {
+    setPanelWidthState(width);
+    try {
+      localStorage.setItem(PANEL_WIDTH_KEY, String(width));
+    } catch {
+      // Storage can be blocked. The width still holds until the page reloads.
+    }
+  }
   const [layer, setLayer] = useState<Layer>("load");
   const [surveyOpen, setSurveyOpen] = useState(false);
   const [target, setTarget] = useState<SheetTarget | null>(null);
   const [arrived, setArrived] = useState(false);
-  // 쉼공간 찾기 opens in the panel; the map then marks only the listed shelters.
+  // 지금 쉬고 싶어요 opens 쉼터 in the panel; the map then marks only the listed ones.
   const [refugeOpen, setRefugeOpen] = useState(false);
   const [shelters, setShelters] = useState<Shelter[]>([]);
 
@@ -176,24 +254,31 @@ function Home({
   }
 
   return (
-    <main className={panelOpen ? "app" : "app collapsed"}>
-      {panelOpen &&
-        (refugeOpen ? (
-          <ShelterPanel
-            id={PANEL_ID}
-            sens={sens}
-            onPick={setTarget}
-            onItems={setShelters}
-            onClose={closeRefuges}
-          />
-        ) : (
-          <RoutePanel
-            id={PANEL_ID}
-            planner={planner}
-            onSettings={() => setSurveyOpen(true)}
-            onArrive={() => setArrived(true)}
-          />
-        ))}
+    <main
+      className={panelOpen ? "app" : "app collapsed"}
+      style={{ "--panel": `${panelWidth}px` } as CSSProperties}
+    >
+      {panelOpen && (
+        <>
+          {refugeOpen ? (
+            <ShelterPanel
+              id={PANEL_ID}
+              sens={sens}
+              onPick={setTarget}
+              onItems={setShelters}
+              onClose={closeRefuges}
+            />
+          ) : (
+            <RoutePanel
+              id={PANEL_ID}
+              planner={planner}
+              onSettings={() => setSurveyOpen(true)}
+              onArrive={() => setArrived(true)}
+            />
+          )}
+          <PanelResizer width={panelWidth} onResize={setPanelWidth} />
+        </>
+      )}
 
       <section className="map-area" aria-label="감각 지도">
         <SensoryMap
@@ -278,8 +363,15 @@ function Home({
               <li>
                 낮음 <i className="heat-scale" /> 높음
               </li>
+              <li>
+                <i className="swatch-nodata" /> 측정 범위 밖
+              </li>
+              <li>
+                <i className="swatch-hotspot" /> 혼잡 1~4
+              </li>
             </ul>
           </div>
+          {/* The one thing to reach for when it gets too much, so it sits front and centre. */}
           {!refugeOpen && (
             <button
               type="button"
@@ -290,7 +382,7 @@ function Home({
               }}
             >
               <Trees aria-hidden />
-              쉼공간 찾기
+              지금 쉬고 싶어요
             </button>
           )}
         </div>
