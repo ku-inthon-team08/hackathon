@@ -37,15 +37,25 @@ function useKakaoMap(element: React.RefObject<HTMLDivElement | null>) {
   return map;
 }
 
-export function KakaoHomeMap({
+function pin(label: string, position: kakao.maps.LatLng, target: kakao.maps.Map) {
+  const content = document.createElement("span");
+  content.className = "pin";
+  content.textContent = label;
+  return new kakao.maps.CustomOverlay({ map: target, position, content, xAnchor: 0.5, yAnchor: 0.5 });
+}
+
+// The load layer, hotspots and, when given, a route on top that the view frames.
+export function KakaoMap({
   bounds,
   layers,
   layer,
+  route,
   onHotspot,
 }: {
   bounds: Bounds;
   layers?: MapLayers;
   layer: Layer;
+  route?: LineString;
   onHotspot: (hotspot: HotspotProps, point: Point) => void;
 }) {
   const element = useRef<HTMLDivElement>(null);
@@ -57,13 +67,14 @@ export function KakaoHomeMap({
   }, [onHotspot]);
 
   useEffect(() => {
+    if (route) return;
     map.current?.setBounds(
       new kakao.maps.LatLngBounds(
         new kakao.maps.LatLng(bounds.min_lat, bounds.min_lng),
         new kakao.maps.LatLng(bounds.max_lat, bounds.max_lng),
       ),
     );
-  }, [map, bounds]);
+  }, [map, bounds, route]);
 
   useEffect(() => {
     const target = map.current;
@@ -106,42 +117,29 @@ export function KakaoHomeMap({
     };
   }, [map, layers, layer]);
 
-  return <div ref={element} className="kakao-map" />;
-}
-
-function pin(label: string, position: kakao.maps.LatLng, target: kakao.maps.Map) {
-  const content = document.createElement("span");
-  content.className = "pin";
-  content.textContent = label;
-  return new kakao.maps.CustomOverlay({ map: target, position, content, xAnchor: 0.5, yAnchor: 0.5 });
-}
-
-export function KakaoRouteMap({ line }: { line: LineString }) {
-  const element = useRef<HTMLDivElement>(null);
-  const map = useKakaoMap(element);
-
   useEffect(() => {
     const target = map.current;
-    if (!target) return;
-    const path = line.coordinates.map(toLatLng);
-    const bounds = new kakao.maps.LatLngBounds();
-    path.forEach((point) => bounds.extend(point));
-    target.setBounds(bounds, 48, 48, 48, 48);
+    if (!target || !route) return;
+    const path = route.coordinates.map(toLatLng);
+    const frame = new kakao.maps.LatLngBounds();
+    path.forEach((point) => frame.extend(point));
+    target.setBounds(frame, 48, 48, 48, 48);
 
-    const route = new kakao.maps.Polyline({
+    const line = new kakao.maps.Polyline({
       map: target,
       path,
-      strokeColor: token("--focus"),
+      strokeColor: token("--primary"),
       strokeWeight: 6,
-      strokeOpacity: 0.85,
+      strokeOpacity: 0.9,
+      zIndex: 1,
     });
     const pins = [pin("출발", path[0], target), pin("도착", path[path.length - 1], target)];
 
     return () => {
-      route.setMap(null);
+      line.setMap(null);
       pins.forEach((item) => item.setMap(null));
     };
-  }, [map, line]);
+  }, [map, route]);
 
   return <div ref={element} className="kakao-map" />;
 }

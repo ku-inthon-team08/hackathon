@@ -171,6 +171,7 @@ export function quietRoutes(
           coordinates,
           dist: metres(coordinates[0], coordinates[1]) + metres(coordinates[1], coordinates[2]),
           s: sensoryLoad(noise, light, crowd, sens),
+          exposure: { light, noise, crowd },
         };
       });
       const base = measured[0];
@@ -186,6 +187,7 @@ export function quietRoutes(
           ? Math.round(((m.s * m.dist) / (base.s * base.dist) - 1) * 100)
           : null,
         geometry: { type: "LineString", coordinates: m.coordinates },
+        exposure: m.exposure,
       }));
       return { mock: true, routes };
     },

@@ -1,12 +1,9 @@
 "use client";
 
 import { Square, Volume2 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
-import { placeDetail, quietRoutes } from "@/lib/api";
+import { placeDetail } from "@/lib/api";
 import { distance, koreaTime, LOW_CONFIDENCE, NOISE_LABEL } from "@/lib/format";
-import { getPosition } from "@/lib/location";
-import { saveTrip, useSensitivity } from "@/lib/storage";
 import type { NamedPlace } from "@/lib/api/types";
 import { useAsync } from "@/hooks/useAsync";
 import { usePreview } from "@/hooks/usePreview";
@@ -78,39 +75,16 @@ function Evidence({ placeId, expanded }: { placeId: string; expanded: boolean })
   );
 }
 
-export function PlaceSheet({ target, onClose }: { target: SheetTarget; onClose: () => void }) {
-  const router = useRouter();
-  const { sens } = useSensitivity();
+export function PlaceSheet({
+  target,
+  onClose,
+  onGo,
+}: {
+  target: SheetTarget;
+  onClose: () => void;
+  onGo: (destination: NamedPlace) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
-  const [going, setGoing] = useState(false);
-  const [failed, setFailed] = useState(false);
-
-  async function goHere() {
-    setGoing(true);
-    setFailed(false);
-    const destination = { name: target.name, lat: target.lat, lng: target.lng };
-    const from = await getPosition().catch(() => null);
-    if (!from) {
-      // Without a start point, let the user type one in route planning.
-      const query = new URLSearchParams({
-        toName: destination.name,
-        toLat: String(destination.lat),
-        toLng: String(destination.lng),
-      });
-      router.push(`/route?${query}`);
-      return;
-    }
-    try {
-      const { routes } = await quietRoutes(from, destination, sens);
-      const route = routes[routes.length - 1];
-      if (!route) throw new Error("no route");
-      saveTrip({ route, destination });
-      router.push(`/navigate/${route.kind}`);
-    } catch {
-      setGoing(false);
-      setFailed(true);
-    }
-  }
 
   return (
     <Sheet title={target.name} full={expanded} onClose={onClose}>
@@ -141,19 +115,12 @@ export function PlaceSheet({ target, onClose }: { target: SheetTarget; onClose: 
         </button>
       )}
 
-      {failed && (
-        <p className="error" role="alert">
-          경로를 찾지 못했어요. 다시 시도해 주세요.
-        </p>
-      )}
       <button
         type="button"
         className="button primary"
-        aria-busy={going}
-        disabled={going}
-        onClick={goHere}
+        onClick={() => onGo({ name: target.name, lat: target.lat, lng: target.lng })}
       >
-        {going ? "경로 찾는 중…" : "여기로 가기"}
+        여기로 가기
       </button>
     </Sheet>
   );

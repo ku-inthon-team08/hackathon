@@ -1,12 +1,9 @@
-import { Check } from "lucide-react";
+import { SENSITIVITY_MAX } from "@/lib/storage";
 
-const OPTIONS = [
-  { value: 0, label: "상관없어요" },
-  { value: 1, label: "조금 신경 쓰여요" },
-  { value: 2, label: "꽤 힘들어요" },
-  { value: 3, label: "많이 힘들어요" },
-];
+const LEVELS = Array.from({ length: SENSITIVITY_MAX }, (_, i) => i + 1);
 
+// Filled dots up to the answer, like a rating. Each dot is a radio, so arrow keys work.
+// value is undefined until the user picks one, so every dot starts empty.
 export function SensitivityField({
   name,
   legend,
@@ -15,24 +12,30 @@ export function SensitivityField({
 }: {
   name: string;
   legend: string;
-  value: number;
+  value?: number;
   onChange: (value: number) => void;
 }) {
   return (
-    <fieldset className="choices">
+    <fieldset className="dots-field">
       <legend>{legend}</legend>
-      {OPTIONS.map((option) => (
-        <label key={option.value} className="choice">
-          <input
-            type="radio"
-            name={name}
-            checked={value === option.value}
-            onChange={() => onChange(option.value)}
-          />
-          <span>{option.label}</span>
-          {value === option.value && <Check aria-hidden />}
-        </label>
-      ))}
+      <div className="dots">
+        {LEVELS.map((level) => (
+          <label key={level} className={value !== undefined && level <= value ? "dot on" : "dot"}>
+            <input
+              type="radio"
+              name={name}
+              checked={value === level}
+              onChange={() => onChange(level)}
+            />
+            <span className="visually-hidden">
+              {level} / {SENSITIVITY_MAX}
+            </span>
+          </label>
+        ))}
+      </div>
+      <span className="dots-value" aria-hidden>
+        {value ?? "-"} / {SENSITIVITY_MAX}
+      </span>
     </fieldset>
   );
 }

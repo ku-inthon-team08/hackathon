@@ -6,11 +6,14 @@ import { useEffect, useRef, type ReactNode } from "react";
 export function Sheet({
   title,
   full,
+  modal,
   onClose,
   children,
 }: {
   title: string;
   full?: boolean;
+  // A centred popup instead of a side sheet.
+  modal?: boolean;
   onClose: () => void;
   children: ReactNode;
 }) {
@@ -25,7 +28,7 @@ export function Sheet({
   return (
     <dialog
       ref={dialog}
-      className={full ? "sheet full" : "sheet"}
+      className={["sheet", full && "full", modal && "modal"].filter(Boolean).join(" ")}
       aria-label={title}
       onCancel={(event) => {
         event.preventDefault();

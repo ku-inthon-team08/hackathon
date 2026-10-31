@@ -1,7 +1,6 @@
 "use client";
 
 import { Mic } from "lucide-react";
-import Link from "next/link";
 import { useState } from "react";
 import { hasRated, saveRating } from "@/lib/storage";
 import type { NamedPlace } from "@/lib/api/types";
@@ -13,18 +12,21 @@ const RATINGS = ["조용했어요", "보통이었어요", "시끄러웠어요"];
 export function FeedbackSheet({
   destination,
   onClose,
+  onDone,
 }: {
   destination: NamedPlace;
   onClose: () => void;
+  // Ends the trip once the rating is in.
+  onDone: () => void;
 }) {
   const key = `${destination.lat},${destination.lng}`;
   const [status, setStatus] = useState<"asking" | "done" | "already">(() =>
     hasRated(key) ? "already" : "asking",
   );
   const home = (
-    <Link className="button primary" href="/">
+    <button type="button" className="button primary" onClick={onDone}>
       지도로 돌아가기
-    </Link>
+    </button>
   );
 
   return (

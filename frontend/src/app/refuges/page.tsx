@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useLayoutEffect, useState } from "react";
 import { PlaceField } from "@/components/PlaceField";
 import { PlaceSheet, type SheetTarget } from "@/components/PlaceSheet";
@@ -71,6 +72,7 @@ function ShelterList({
 }
 
 export default function RefugesPage() {
+  const router = useRouter();
   const { ready, sens } = useSensitivity();
   const [typed, setTyped] = useState<LatLng | null>(null);
   const [target, setTarget] = useState<SheetTarget | null>(null);
@@ -100,7 +102,20 @@ export default function RefugesPage() {
       {!origin && !denied && <SkeletonRows count={TOP_N} label="현재 위치 확인 중" />}
       {origin && ready && <ShelterList origin={origin} sens={sens} onPick={setTarget} />}
 
-      {target && <PlaceSheet target={target} onClose={() => setTarget(null)} />}
+      {target && (
+        <PlaceSheet
+          target={target}
+          onClose={() => setTarget(null)}
+          onGo={(to) => {
+            const query = new URLSearchParams({
+              toName: to.name,
+              toLat: String(to.lat),
+              toLng: String(to.lng),
+            });
+            router.push(`/?${query}`);
+          }}
+        />
+      )}
     </main>
   );
 }

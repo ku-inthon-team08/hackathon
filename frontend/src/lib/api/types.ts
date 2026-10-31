@@ -71,6 +71,8 @@ export interface Route {
   extra_distance_pct: number | null;
   exposure_change_pct: number | null;
   geometry: LineString;
+  // Not in docs/api.md yet. The mock fills it (0-1 each) until the BE returns per-sense values.
+  exposure?: { light: number; noise: number; crowd: number };
 }
 export interface QuietRoutes {
   mock: boolean;
