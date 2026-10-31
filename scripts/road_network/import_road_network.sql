@@ -24,9 +24,15 @@ select md5(string_agg(content, '' order by id)) from net._http_response where id
 select md5(string_agg(content, '' order by id)) from net._http_response where id in (<edges 조각 id들>);
 
 -- ───── 3) 바꾸기: 한 트랜잭션. 중간에 실패하면 예전 도로망이 그대로 남는다 ─────
--- 서울 기준 몇 분 걸린다. SQL 편집기·MCP의 요청 시간 제한에 걸리면 pg_cron으로 한 번만 돌린다:
---   select cron.schedule('replace-road-network', '<분> <시> * * *', $job$ ...아래 내용... $job$);
---   끝나면 cron.job_run_details에서 결과를 보고 select cron.unschedule('replace-road-network');
+-- 서울 기준 수 분 걸리고, 그동안 도로망 테이블이 잠겨 앱 요청은 기다리다 시간 초과로 실패한다.
+-- SQL 편집기·MCP의 요청 시간 제한(60초 안팎)에 걸리므로 pg_cron으로 한 번만 돌린다(10분마다 도는 노출값 갱신 직후 시각):
+--   select cron.schedule('replace-road-network', '<분> <시> <일> <월> *', $job$ set statement_timeout = '25min'; do $do$ ... $do$; $job$);
+-- 주의
+--   - pg_cron은 여러 문장 명령을 첫 문장(set)이 끝나면 'succeeded'로 적는다. 실제로 끝났는지는 pg_stat_activity로 본다.
+--     진행 중에 도로망 테이블 크기를 재는 쿼리(pg_relation_size 등)는 잠금에 막히니 pg_stat_activity만 본다.
+--   - 같은 트랜잭션 안에서 앱 RPC(quiet_routes 등)를 부르고 결과·시간이 이상하면 raise로 되돌리면, 실패할 때 앱이 안전하다.
+--   - 되돌아가도 ANALYZE가 바꾼 행 수 통계(pg_class.reltuples)는 남는다. 실패했다면 도로망 테이블을 analyze 한다.
+--   - 끝나면 select cron.unschedule('replace-road-network');
 set statement_timeout = '30min';
 select public.replace_road_network(
   (select string_agg(content, '' order by id) from net._http_response where id in (<nodes 조각 id들>)),
