@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { nearbyShelters } from "@/lib/api";
 import { distance, KIND_LABEL } from "@/lib/format";
 import { getPosition } from "@/lib/location";
-import type { LatLng, Sensitivity, Shelter } from "@/lib/api/types";
+import type { LatLng, NamedPlace, Sensitivity, Shelter } from "@/lib/api/types";
 import { useAsync } from "@/hooks/useAsync";
 import { PlaceField } from "./PlaceField";
 import type { SheetTarget } from "./PlaceSheet";
@@ -85,7 +85,58 @@ export function ShelterList({
   );
 }
 
-// Shelter search inside the home panel: current location, or a typed place when it is unknown.
+// Where to search from: the current location, or a place typed in the box.
+// Like 출발지, the empty box offers 현재 위치 on focus, so a typed place can be undone.
+export function ShelterSearch({
+  sens,
+  onPick,
+  onItems,
+}: {
+  sens: Sensitivity;
+  onPick: (target: SheetTarget) => void;
+  onItems?: (items: Shelter[]) => void;
+}) {
+  const [typed, setTyped] = useState<NamedPlace | null>(null);
+  const position = useAsync(getPosition);
+  const here = position.data;
+  const origin = typed ?? here;
+  const denied = !here && Boolean(position.error);
+  const fieldText = typed?.name ?? (here ? "현재 위치" : "");
+
+  function pickHere() {
+    setTyped(null);
+    // A denied or failed lookup may work now, e.g. after allowing location in the browser.
+    if (!here) position.refresh();
+  }
+
+  return (
+    <>
+      {!origin && denied && (
+        <div className="section-title">
+          <Mascot pose="search" height={64} />
+          <p>위치를 확인할 수 없어요. 역이나 장소 이름으로 찾아 주세요.</p>
+        </div>
+      )}
+      {(origin || denied) && (
+        <PlaceField
+          key={`at:${fieldText}`}
+          label="지금 어디에 있나요?"
+          value={fieldText}
+          accent={!typed && Boolean(here)}
+          clearOnFocus
+          placeholder="역이나 장소 이름"
+          leading={{ label: "현재 위치", onPick: pickHere }}
+          invalid={!origin && denied}
+          onPick={setTyped}
+        />
+      )}
+      {!origin && !denied && <SkeletonRows count={TOP_N} label="현재 위치 확인 중" />}
+      {origin && <ShelterList origin={origin} sens={sens} onPick={onPick} onItems={onItems} />}
+    </>
+  );
+}
+
+// Shelter search inside the home panel.
 export function ShelterPanel({
   id,
   sens,
@@ -99,11 +150,6 @@ export function ShelterPanel({
   onItems: (items: Shelter[]) => void;
   onClose: () => void;
 }) {
-  const [typed, setTyped] = useState<LatLng | null>(null);
-  const position = useAsync(getPosition);
-  const origin = typed ?? position.data;
-  const denied = Boolean(position.error);
-
   return (
     <aside id={id} className="panel">
       <header className="panel-brand">
@@ -114,17 +160,7 @@ export function ShelterPanel({
       </header>
       <section className="stack" aria-labelledby={`${id}-shelters`}>
         <h2 id={`${id}-shelters`}>가까운 쉼터</h2>
-        {!origin && denied && (
-          <>
-            <div className="section-title">
-              <Mascot pose="search" height={64} />
-              <p>위치를 확인할 수 없어요. 역이나 장소 이름으로 찾아 주세요.</p>
-            </div>
-            <PlaceField label="지금 어디에 있나요?" onPick={setTyped} />
-          </>
-        )}
-        {!origin && !denied && <SkeletonRows count={TOP_N} label="현재 위치 확인 중" />}
-        {origin && <ShelterList origin={origin} sens={sens} onPick={onPick} onItems={onItems} />}
+        <ShelterSearch sens={sens} onPick={onPick} onItems={onItems} />
       </section>
     </aside>
   );
