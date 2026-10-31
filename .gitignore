@@ -1,0 +1,10 @@
+# Env files (keep .env.example tracked)
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+
+# Node
+node_modules/
