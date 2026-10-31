@@ -1,7 +1,7 @@
 "use client";
 
-import { ArrowDownUp, LocateFixed, Settings } from "lucide-react";
-import { useRef, useState, type FormEvent } from "react";
+import { ArrowDownUp, Settings } from "lucide-react";
+import { useId, useRef, useState, type FormEvent } from "react";
 import { quietRoutes } from "@/lib/api";
 import { distance, LOAD_LABEL, levelOf } from "@/lib/format";
 import { getPosition } from "@/lib/location";
@@ -55,7 +55,8 @@ export function usePlanner(sens: Sensitivity, initialTo: NamedPlace | null) {
   const [plan, setPlan] = useState<Plan>({ step: "search", from: null, to: initialTo });
   const [busy, setBusy] = useState(false);
 
-  async function search(from: NamedPlace | null, to: NamedPlace) {
+  // Pass `answers` right after the survey, before the saved value reaches this hook.
+  async function search(from: NamedPlace | null, to: NamedPlace, answers = sens) {
     setBusy(true);
     const start = from ?? (await getPosition().catch(() => null));
     if (!start) {
@@ -64,7 +65,7 @@ export function usePlanner(sens: Sensitivity, initialTo: NamedPlace | null) {
       return;
     }
     try {
-      const routes = distinctRoutes((await quietRoutes(start, to, sens)).routes);
+      const routes = distinctRoutes((await quietRoutes(start, to, answers)).routes);
       const open = recommendedOf(routes)?.kind ?? "balanced";
       setPlan({ step: "results", from, to, routes, open });
     } catch {
@@ -94,6 +95,14 @@ function SearchForm({
   const fromText = from?.name ?? (error === "no-location" ? "" : "현재 위치");
   const toInput = useRef<HTMLInputElement>(null);
   const submitButton = useRef<HTMLButtonElement>(null);
+  const id = useId();
+  const noLocation = error === "no-location";
+
+  // Carry on to the next empty step, so the whole search works from the keyboard.
+  function pickFrom(place: NamedPlace | null) {
+    onEdit({ from: place, to });
+    (to ? submitButton : toInput).current?.focus();
+  }
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -107,52 +116,56 @@ function SearchForm({
   return (
     <form className="stack-large" onSubmit={submit} noValidate>
       <div className="stack">
-        <PlaceField
-          key={`from:${fromText}`}
-          inline
-          label="출발지"
-          value={fromText}
-          placeholder="출발지 검색"
-          error={error === "no-location" ? "위치를 확인할 수 없어요. 출발지를 검색해 주세요." : undefined}
-          trailing={
-            <button
-              type="button"
-              className="icon-button field-trailing"
-              aria-label="현재 위치 사용"
-              title="현재 위치 사용"
-              onClick={() => onEdit({ from: null, to })}
-            >
-              <LocateFixed aria-hidden />
-            </button>
-          }
-          onPick={(place) => {
-            onEdit({ from: place, to });
-            // Carry on to the next empty step, so the whole search works from the keyboard.
-            (to ? submitButton : toInput).current?.focus();
-          }}
-        />
-        <button
-          type="button"
-          className="icon-button swap"
-          aria-label="출발지와 도착지 바꾸기"
-          disabled={!from || !to}
-          onClick={() => onEdit({ from: to, to: from })}
-        >
-          <ArrowDownUp aria-hidden />
-        </button>
-        <PlaceField
-          key={`to:${to?.name ?? ""}`}
-          ref={toInput}
-          inline
-          label="도착지"
-          value={to?.name}
-          error={toError}
-          onPick={(place) => {
-            setToError(undefined);
-            onEdit({ from, to: place });
-            submitButton.current?.focus();
-          }}
-        />
+        {/* One box for both ends, split by a line, with the swap button on that line. */}
+        <div className="route-fields">
+          <PlaceField
+            key={`from:${fromText}`}
+            hideLabel
+            clearOnFocus
+            label="출발지"
+            value={fromText}
+            accent={!from && !noLocation}
+            placeholder="출발지 입력"
+            leading={{ label: "현재 위치", onPick: () => pickFrom(null) }}
+            invalid={noLocation}
+            describedBy={noLocation ? `${id}-from-error` : undefined}
+            onPick={pickFrom}
+          />
+          <PlaceField
+            key={`to:${to?.name ?? ""}`}
+            ref={toInput}
+            hideLabel
+            label="도착지"
+            value={to?.name}
+            placeholder="도착지 입력"
+            invalid={Boolean(toError)}
+            describedBy={toError ? `${id}-to-error` : undefined}
+            onPick={(place) => {
+              setToError(undefined);
+              onEdit({ from, to: place });
+              submitButton.current?.focus();
+            }}
+          />
+          <button
+            type="button"
+            className="icon-button swap"
+            aria-label="출발지와 도착지 바꾸기"
+            disabled={!from || !to}
+            onClick={() => onEdit({ from: to, to: from })}
+          >
+            <ArrowDownUp aria-hidden />
+          </button>
+        </div>
+        {noLocation && (
+          <p id={`${id}-from-error`} className="error" role="alert">
+            위치를 확인할 수 없어요. 출발지를 검색해 주세요.
+          </p>
+        )}
+        {toError && (
+          <p id={`${id}-to-error`} className="error" role="alert">
+            {toError}
+          </p>
+        )}
       </div>
       {error === "failed" && (
         <p className="error" role="alert">
@@ -312,19 +325,22 @@ export function RoutePanel({
   const { plan, setPlan, busy, search } = planner;
   return (
     <aside id={id} className="panel">
-      <header className="panel-header">
-        <h1>조용히 길가기</h1>
+      <header className="panel-brand">
+        <h1>고요하길</h1>
         <button type="button" className="icon-button" aria-label="민감도 설정" onClick={onSettings}>
           <Settings aria-hidden />
         </button>
       </header>
       {plan.step === "search" && (
-        <SearchForm
-          plan={plan}
-          busy={busy}
-          onEdit={(next) => setPlan({ step: "search", ...next })}
-          onSearch={search}
-        />
+        <section className="stack" aria-labelledby={`${id}-search`}>
+          <h2 id={`${id}-search`}>고요한 길 찾기</h2>
+          <SearchForm
+            plan={plan}
+            busy={busy}
+            onEdit={(next) => setPlan({ step: "search", ...next })}
+            onSearch={search}
+          />
+        </section>
       )}
       {plan.step === "results" && <RouteOptions plan={plan} onPlan={setPlan} />}
       {plan.step === "guiding" && <Guiding plan={plan} onPlan={setPlan} onArrive={onArrive} />}

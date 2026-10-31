@@ -1,30 +1,39 @@
 @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css");
 
-/* Modern light theme: cool neutrals, one indigo accent, hairline borders and soft shadows.
+/* "Fresh forest path": a clear jade accent on clean, faintly green neutrals. Calm without
+   being dull; text keeps at least 4.5:1 against its background (white on --primary ≈ 4.9:1).
    Everything visual goes through these tokens and the classes below. */
 :root {
-  --bg: #f7f8fa;
+  --bg: #f6f8f7;
   --surface: #ffffff;
-  --surface-muted: #f1f3f6;
-  --map: #eceff3;
-  --line: #e4e7ec;
-  --line-strong: #cdd2da;
-  --text: #111827;
-  --text-muted: #6b7280;
-  --primary: #4f46e5;
-  --primary-hover: #4338ca;
-  --primary-soft: #eef0ff;
+  --surface-muted: #eef2f0;
+  --map: #e9eeec;
+  --line: #e1e7e4;
+  --line-strong: #c6cfcb;
+  --text: #1f2a26;
+  --text-muted: #5e6b66;
+  --primary: #1b8063;
+  --primary-hover: #156b53;
+  --primary-soft: #e3f4ec;
   --on-primary: #ffffff;
-  --error: #dc2626;
-  --focus: #6366f1;
-  /* Load levels. Width and dash carry the level too, never hue alone. */
-  --level-low: #10b981;
-  --level-mid: #f59e0b;
-  --level-high: #ef4444;
+  --error: #c8553d;
+  --focus: #1b8063;
+  /* Load levels: fresh green, honey and coral, so 높음 reads as busy, not as danger.
+     Width and dash carry the level too, never hue alone. */
+  --level-low: #3dbe8b;
+  --level-mid: #e5b53a;
+  --level-high: #e27d5f;
 
-  --shadow-sm: 0 1px 2px rgb(16 24 40 / 0.06);
-  --shadow-md: 0 4px 12px rgb(16 24 40 / 0.08), 0 1px 3px rgb(16 24 40 / 0.06);
-  --shadow-lg: 0 16px 40px rgb(16 24 40 / 0.16);
+  --shadow-sm: 0 1px 2px rgb(16 40 32 / 0.06);
+  --shadow-md: 0 4px 12px rgb(16 40 32 / 0.08), 0 1px 3px rgb(16 40 32 / 0.06);
+  --shadow-lg: 0 16px 40px rgb(16 40 32 / 0.16);
+  /* Translucent panels floating over the map. */
+  --glass: rgb(255 255 255 / 0.9);
+  --backdrop: rgb(31 42 38 / 0.4);
+  --error-soft: rgb(200 85 61 / 0.14);
+  --primary-glow: rgb(27 128 99 / 0.35);
+
+  color-scheme: light;
 
   --radius: 10px;
   --radius-lg: 16px;
@@ -38,6 +47,41 @@
   -webkit-font-smoothing: antialiased;
   color: var(--text);
   background: var(--bg);
+}
+
+/* Dark: deep blue slate, like a night sky, for light-sensitive users.
+   layout.tsx sets data-theme before paint. */
+:root[data-theme="dark"] {
+  --bg: #0f1720;
+  --surface: #16202b;
+  --surface-muted: #1d2935;
+  --map: #121b25;
+  --line: #26333f;
+  --line-strong: #354452;
+  --text: #e6edf3;
+  --text-muted: #93a3b3;
+  /* A deeper, quieter jade on dark. Still ≥4.5:1 as text on --surface, and buttons carry
+     dark text (≈5:1) instead of white. */
+  --primary: #3a9a7e;
+  --primary-hover: #48a98c;
+  --primary-soft: rgb(58 154 126 / 0.16);
+  --on-primary: #0a1a14;
+  --error: #f08e70;
+  --focus: #56ad93;
+
+  --level-low: #4cc79f;
+  --level-mid: #f0c35a;
+  --level-high: #f08e70;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.35);
+  --shadow-lg: 0 16px 40px rgb(0 0 0 / 0.6);
+  --glass: rgb(22 32 43 / 0.88);
+  --backdrop: rgb(0 0 0 / 0.5);
+  --error-soft: rgb(240 142 112 / 0.18);
+  --primary-glow: rgb(58 154 126 / 0.25);
+
+  color-scheme: dark;
 }
 
 *,
@@ -336,7 +380,7 @@ svg.lucide {
 
 .field input[aria-invalid="true"] {
   border-color: var(--error);
-  box-shadow: 0 0 0 3px rgb(220 38 38 / 0.12);
+  box-shadow: 0 0 0 3px var(--error-soft);
 }
 
 .hint {
@@ -350,39 +394,64 @@ svg.lucide {
   color: var(--error);
 }
 
-/* Label on the left, box on the right; anything under the box lines up with it. */
-.field.inline {
-  display: grid;
-  grid-template-columns: 44px 1fr;
-  align-items: center;
-  gap: 6px 8px;
-}
-
-.field.inline > :not(label) {
-  grid-column: 2;
+.field.bare {
+  gap: 0;
 }
 
 .input-wrap {
   position: relative;
 }
 
-.input-wrap:has(.field-trailing) input {
-  padding-right: 44px;
+.field input.accent {
+  color: var(--primary);
+  font-weight: 600;
 }
 
-.field-trailing {
+/* 출발지 and 도착지 share one box, split by a line, with the swap button on the line. */
+.route-fields {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.route-fields input,
+.route-fields input:focus {
+  padding-right: 56px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.route-fields .field:first-child input {
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.route-fields .field + .field {
+  border-top: 1px solid var(--line);
+}
+
+.route-fields .field + .field input {
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
+/* The box being typed in gets the ring, not the whole pair. */
+.route-fields input:focus {
+  position: relative;
+  box-shadow:
+    inset 0 0 0 1.5px var(--primary),
+    0 0 0 3px var(--primary-soft);
+}
+
+.route-fields .swap {
   position: absolute;
+  z-index: 1;
   top: 50%;
-  right: 4px;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  right: 12px;
+  margin: 0;
   transform: translateY(-50%);
-}
-
-.field-trailing svg {
-  width: 18px;
-  height: 18px;
 }
 
 /* Suggestions float over whatever sits below the box. */
@@ -408,20 +477,48 @@ svg.lucide {
 .results [role="option"] {
   display: flex;
   align-items: center;
+  gap: 10px;
   min-height: var(--tap);
   padding: 8px 12px;
-  border-bottom: 1px solid var(--line);
   cursor: pointer;
 }
 
-.results [role="option"]:last-child {
-  border-bottom: 0;
+.results [role="option"] svg {
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
 }
 
 .results [role="option"][aria-selected="true"] {
   background: var(--primary-soft);
+}
+
+/* 현재 위치: always in the accent colour, like the committed value in the box. */
+.results [role="option"].leading,
+.results [role="option"].leading svg {
   color: var(--primary);
   font-weight: 600;
+}
+
+.option-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.option-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.results-empty {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  padding: 12px;
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 /* Sensitivity survey: dots filled up to the answer */
@@ -460,13 +557,12 @@ svg.lucide {
   background: var(--surface);
   transition:
     background-color 150ms ease-out,
-    border-color 150ms ease-out,
-    transform 150ms ease-out;
+    border-color 150ms ease-out;
 }
 
+/* Colour only on hover: nothing grows or moves. */
 .dot:hover::before {
   border-color: var(--primary);
-  transform: scale(1.08);
 }
 
 .dot.on::before {
@@ -712,7 +808,12 @@ svg.lucide {
 
 /* Kakao has no muted style, so calm the tiles without touching the lines above them. */
 .kakao-map img {
-  filter: grayscale(0.6) contrast(0.9) brightness(1.06);
+  filter: grayscale(0.5) contrast(0.92) brightness(1.04);
+}
+
+/* Kakao has no dark tiles either, so invert them; the lines are SVG and keep their colours. */
+:root[data-theme="dark"] .kakao-map img {
+  filter: invert(0.9) hue-rotate(180deg) grayscale(0.5) contrast(0.85) brightness(0.85);
 }
 
 /* Hotspots and pins are placed by Kakao overlays, or absolutely on the stand-in map. */
@@ -843,20 +944,31 @@ svg.lucide {
   background: var(--surface);
 }
 
-.panel-header {
+/* Service name and the settings button over a hairline, on every step. */
+.panel-brand {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
 }
 
-/* Sits in the gap between 출발지 and 도착지, centred under the box's trailing button. */
+.panel-brand h1 {
+  color: var(--primary);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.panel h2 {
+  font-size: 17px;
+}
+
+/* Placed on the line between 출발지 and 도착지 by .route-fields .swap. */
 .swap {
-  align-self: flex-end;
   width: 32px;
   height: 32px;
-  margin-block: -4px;
-  margin-right: 6px;
   border: 1px solid var(--line);
   border-radius: 50%;
   background: var(--surface);
@@ -997,7 +1109,7 @@ svg.lucide {
 
 .panel-toggle {
   position: absolute;
-  z-index: 1;
+  z-index: 2;
   top: 50%;
   left: 0;
   display: grid;
@@ -1015,9 +1127,11 @@ svg.lucide {
   cursor: pointer;
 }
 
+/* Above the map layer (.map is z-index 0). */
 .map-top,
 .map-bottom {
   position: absolute;
+  z-index: 2;
   display: flex;
   gap: 8px;
   pointer-events: none;
@@ -1044,11 +1158,33 @@ svg.lucide {
   justify-content: space-between;
 }
 
+/* Theme toggle, then the data age chip. */
+.map-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.theme-toggle {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-md);
+}
+
+.theme-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
 .chip {
   padding: 4px 12px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgb(255 255 255 / 0.9);
+  background: var(--glass);
   backdrop-filter: blur(8px);
   box-shadow: var(--shadow-md);
   font-size: 13px;
@@ -1064,7 +1200,7 @@ svg.lucide {
   padding: 8px 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgb(255 255 255 / 0.9);
+  background: var(--glass);
   backdrop-filter: blur(8px);
   box-shadow: var(--shadow-md);
   font-size: 13px;
@@ -1078,7 +1214,7 @@ svg.lucide {
   padding: 3px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgb(255 255 255 / 0.9);
+  background: var(--glass);
   backdrop-filter: blur(8px);
   box-shadow: var(--shadow-md);
 }
@@ -1125,7 +1261,7 @@ svg.lucide {
   padding: 8px 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgb(255 255 255 / 0.9);
+  background: var(--glass);
   backdrop-filter: blur(8px);
   box-shadow: var(--shadow-md);
   font-size: 12px;
@@ -1183,7 +1319,7 @@ svg.lucide {
   border-radius: 50%;
   background: var(--primary);
   box-shadow:
-    0 8px 24px rgb(79 70 229 / 0.35),
+    0 8px 24px var(--primary-glow),
     var(--shadow-md);
   color: var(--on-primary);
   font-size: 13px;
@@ -1250,7 +1386,7 @@ svg.lucide {
 }
 
 .sheet::backdrop {
-  background: rgb(17 24 39 / 0.4);
+  background: var(--backdrop);
   backdrop-filter: blur(2px);
 }
 
@@ -1302,7 +1438,7 @@ svg.lucide {
   }
 
   .sheet::backdrop {
-    background: rgb(17 24 39 / 0.24);
+    background: var(--backdrop);
   }
 }
 

@@ -64,7 +64,12 @@ function searchKeywords(query: string): Promise<NamedPlace[]> {
               const matched = words.some((w) => r.place_name.includes(w) || address.includes(w));
               return inMapo(address) && matched;
             })
-            .map((r) => ({ name: r.place_name, lat: Number(r.y), lng: Number(r.x) })),
+            .map((r) => ({
+              name: r.place_name,
+              address: (r.road_address_name || r.address_name).replace(/^서울(특별시)? /, ""),
+              lat: Number(r.y),
+              lng: Number(r.x),
+            })),
         );
       },
       { rect: `${min_lng},${min_lat},${max_lng},${max_lat}` },
