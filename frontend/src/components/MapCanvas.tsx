@@ -1,6 +1,6 @@
 "use client";
 
-// Kakao Map when NEXT_PUBLIC_KAKAO_MAP_KEY works, otherwise a blurred, heatmap-like
+// Kakao Map when NEXT_KAKAO_MAP_KEY works, otherwise a blurred, heatmap-like
 // drawing of the same GeoJSON.
 import { useAsync } from "@/hooks/useAsync";
 import { levelOf } from "@/lib/format";
