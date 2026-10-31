@@ -5,8 +5,9 @@ local mock data. With a Kakao key it shows the real map and real place search.
 
 ## Run
 
+Put `NEXT_SUPABASE_URL`, `NEXT_SUPABASE_ANON_KEY` and `NEXT_KAKAO_MAP_KEY` in `../.env` (or `.env.local`).
+
 ```bash
-cp .env.example .env.local   # fill in the keys, or put them in ../.env instead
 npm install
 npm run dev
 ```

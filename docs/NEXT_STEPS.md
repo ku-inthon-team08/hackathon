@@ -15,11 +15,12 @@
 git pull origin main
 cd frontend
 npm install
-cp .env.example .env.local
 ```
 
-`.env.local`의 `NEXT_SUPABASE_ANON_KEY=` 에 **publishable 키** 넣기
-(Supabase 대시보드 → Project Settings → API Keys → `sb_publishable_...`)
+루트 `.env`(레포 바로 아래)에 키 넣기. `next.config.ts`가 이 파일을 읽어요
+- `NEXT_SUPABASE_URL=https://oojowgovzmjlhzuqzqcp.supabase.co`
+- `NEXT_SUPABASE_ANON_KEY=` **publishable 키** (Supabase 대시보드 → Project Settings → API Keys → `sb_publishable_...`)
+- `NEXT_KAKAO_MAP_KEY=` 카카오 JavaScript 키 (없으면 지도 없이 히트맵만, 검색은 샘플 데이터)
 
 ```bash
 npm run dev
