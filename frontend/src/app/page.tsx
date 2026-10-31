@@ -3,9 +3,9 @@
 import { ChevronLeft, ChevronRight, Trees } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { FeedbackSheet } from "@/components/FeedbackSheet";
-import { type Layer, SensoryMap } from "@/components/MapCanvas";
+import { type Layer, type MapRoute, SensoryMap } from "@/components/MapCanvas";
 import { PlaceSheet, type SheetTarget } from "@/components/PlaceSheet";
 import { RoutePanel, usePlanner } from "@/components/RoutePanel";
 import { SensitivityModal } from "@/components/SensitivityModal";
@@ -108,6 +108,17 @@ function Home({
       : plan.step === "guiding"
         ? plan.route
         : undefined;
+  const mapRoutes = useMemo<MapRoute[] | undefined>(() => {
+    if (plan.step === "guiding") {
+      return [{ id: plan.route.kind, line: plan.route.geometry, selected: true }];
+    }
+    if (plan.step !== "results" || plan.routes.length === 0) return undefined;
+    return plan.routes.map((route) => ({
+      id: route.kind,
+      line: route.geometry,
+      selected: route.kind === plan.open,
+    }));
+  }, [plan]);
 
   function closeSurvey(answers?: Sensitivity) {
     onSurvey(answers);
@@ -138,7 +149,12 @@ function Home({
           bounds={MAP_BOUNDS}
           layers={layers.data}
           layer={layer}
-          route={shown && { line: shown.geometry, label: `${plan.to?.name}까지 ${shown.label} 경로` }}
+          routes={mapRoutes}
+          routeLabel={shown && `${plan.to?.name}까지 ${shown.label} 경로`}
+          onRoutePick={(id) => {
+            const route = plan.step === "results" && plan.routes.find((r) => r.kind === id);
+            if (route) setPlan({ ...plan, open: route.kind } as typeof plan);
+          }}
           onHotspot={(hotspot, point) =>
             setTarget({
               name: hotspot.area_nm,
@@ -204,13 +220,7 @@ function Home({
             </p>
             <ul>
               <li>
-                <i className="swatch load-low" /> 낮음
-              </li>
-              <li>
-                <i className="swatch load-mid" /> 보통
-              </li>
-              <li>
-                <i className="swatch load-high" /> 높음
+                낮음 <i className="heat-scale" /> 높음
               </li>
               <li>
                 <i className="swatch-hotspot" /> 혼잡 1~4

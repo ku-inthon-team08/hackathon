@@ -37,9 +37,16 @@ function recommendedOf(routes: Route[]) {
   return routes.length ? routes.reduce((a, b) => (b.avg_load < a.avg_load ? b : a)) : undefined;
 }
 
+// The BE can return one road for two kinds. The later kind wins, as the quieter promise.
+function distinctRoutes(routes: Route[]) {
+  const byPath = new Map<string, Route>();
+  routes.forEach((route) => byPath.set(JSON.stringify(route.geometry.coordinates), route));
+  return [...byPath.values()];
+}
+
 function tradeOff(route: Route) {
   const { extra_distance_pct: extra, exposure_change_pct: exposure } = route;
-  if (route.kind === "shortest" || extra === null || exposure === null) return "가장 짧은 길";
+  if (route.kind === "shortest" || !extra || exposure === null) return "가장 짧은 길";
   const change = exposure < 0 ? `${-exposure}% 감소` : `${exposure}% 증가`;
   return `${extra}% 더 걷고 노출 ${change}`;
 }
@@ -57,7 +64,7 @@ export function usePlanner(sens: Sensitivity, initialTo: NamedPlace | null) {
       return;
     }
     try {
-      const { routes } = await quietRoutes(start, to, sens);
+      const routes = distinctRoutes((await quietRoutes(start, to, sens)).routes);
       const open = recommendedOf(routes)?.kind ?? "balanced";
       setPlan({ step: "results", from, to, routes, open });
     } catch {
