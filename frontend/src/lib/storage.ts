@@ -1,14 +1,15 @@
 import { useCallback, useMemo, useSyncExternalStore } from "react";
-import type { NamedPlace, Route, Sensitivity } from "./api/types";
+import type { Sensitivity } from "./api/types";
 
-const SENSITIVITY_KEY = "sensitivity";
-const TRIP_KEY = "trip";
+// The key changed when the scale moved from 0-3 to the BE's 1-5, so old answers are dropped.
+const SENSITIVITY_KEY = "sensitivity-1to5";
 const RATED_KEY = "rated";
 
+export const SENSITIVITY_MAX = 5;
 export const DEFAULT_SENSITIVITY: Sensitivity = {
-  sens_sound: 2,
-  sens_light: 2,
-  sens_crowd: 2,
+  sens_sound: 3,
+  sens_light: 3,
+  sens_crowd: 3,
 };
 
 function read(storage: () => Storage, key: string) {
@@ -28,7 +29,6 @@ function write(storage: () => Storage, key: string, value: string) {
 }
 
 const local = () => window.localStorage;
-const session = () => window.sessionStorage;
 
 let memorySensitivity: string | null = null;
 const listeners = new Set<() => void>();
@@ -59,28 +59,6 @@ export function useSensitivity() {
     listeners.forEach((listener) => listener());
   }, []);
   return { ready: raw !== undefined, saved: Boolean(raw), sens, save };
-}
-
-export interface Trip {
-  route: Route;
-  destination: NamedPlace;
-}
-
-// quiet_routes has no route id or GET, so the chosen route lives in this tab only.
-export function saveTrip(trip: Trip) {
-  write(session, TRIP_KEY, JSON.stringify(trip));
-}
-
-const noSubscribe = () => () => {};
-
-export function useTrip() {
-  const raw = useSyncExternalStore<string | null | undefined>(
-    noSubscribe,
-    () => read(session, TRIP_KEY),
-    () => undefined,
-  );
-  const trip = useMemo<Trip | null>(() => (raw ? JSON.parse(raw) : null), [raw]);
-  return { ready: raw !== undefined, trip };
 }
 
 // No feedback RPC exists yet, so ratings stay on this device.

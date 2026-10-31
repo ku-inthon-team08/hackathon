@@ -1,4 +1,4 @@
-// Local data for every screen, shaped like docs/api.md.
+// Local data for when Supabase keys are missing, shaped like docs/api.md.
 // Add ?state=loading|empty|error|stale to any URL to preview that state.
 import type {
   BestTimes,
@@ -19,7 +19,7 @@ import type {
 const WALK_MPM = 75;
 const CROWD_LABELS = ["여유", "보통", "약간 붐빔", "붐빔"];
 
-function scenario() {
+export function scenario() {
   if (typeof window === "undefined") return null;
   return new URLSearchParams(window.location.search).get("state");
 }
@@ -171,6 +171,7 @@ export function quietRoutes(
           coordinates,
           dist: metres(coordinates[0], coordinates[1]) + metres(coordinates[1], coordinates[2]),
           s: sensoryLoad(noise, light, crowd, sens),
+          exposure: { light, noise, crowd },
         };
       });
       const base = measured[0];
@@ -186,6 +187,7 @@ export function quietRoutes(
           ? Math.round(((m.s * m.dist) / (base.s * base.dist) - 1) * 100)
           : null,
         geometry: { type: "LineString", coordinates: m.coordinates },
+        exposure: m.exposure,
       }));
       return { mock: true, routes };
     },

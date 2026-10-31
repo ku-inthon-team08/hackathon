@@ -1,13 +1,13 @@
 # Sensory Map frontend
 
-Next.js app. With `NEXT_PUBLIC_SUPABASE_*` set it calls the Supabase RPCs in `../docs/api.md`;
-without them it runs on local mock data. With a Kakao key it shows the real map and real place search.
+Next.js app. With Supabase keys set it calls the RPCs in `../docs/api.md`; without them it runs on
+local mock data. With a Kakao key it shows the real map and real place search.
 
 ## Run
 
 ```bash
+cp .env.example .env.local   # fill in the keys, or put them in ../.env instead
 npm install
-cp .env.example .env.local   # fill in the Supabase publishable key (and optionally the Kakao key)
 npm run dev
 ```
 
@@ -15,7 +15,7 @@ npm run dev
 
 ```text
 src/
-├─ app/          pages: / welcome refuges route navigate/[routeId]
+├─ app/          pages: / refuges
 ├─ components/   shared UI, sheets, map stand-ins
 ├─ hooks/        useAsync, usePreview
 └─ lib/
