@@ -45,8 +45,8 @@ function ShelterList({
     );
   }
 
-  // The list is sorted by load, but a closed place should not lead it.
-  const items = [...data.items].sort((a, b) => Number(b.is_open) - Number(a.is_open)).slice(0, TOP_N);
+  // The BE already sorts: open, then unknown hours, then closed; best score first within each.
+  const items = data.items.slice(0, TOP_N);
   return (
     <ul className="rows">
       {items.map((item) => (
@@ -58,11 +58,13 @@ function ShelterList({
           >
             <span className="row-title">{item.name}</span>
             <span className="row-meta">
-              {KIND_LABEL[item.kind]} · 도보 {item.walk_min}분 · {distance(item.distance_m)}
+              {item.category ?? KIND_LABEL[item.kind]} · 도보 {item.walk_min}분 · {distance(item.distance_m)}
             </span>
             <span className="row-tags">
               <LoadTag level={item.load_level} />
-              <span className="tag">{item.is_open ? "운영 중" : "운영 종료"}</span>
+              <span className="tag">
+                {item.is_open === null ? "운영시간 확인 필요" : item.is_open ? "운영 중" : "운영 종료"}
+              </span>
             </span>
           </button>
         </li>

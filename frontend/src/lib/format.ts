@@ -9,6 +9,7 @@ export const LOAD_LABEL: Record<LoadLevel, string> = {
 export const KIND_LABEL: Record<PlaceKind, string> = {
   library: "도서관",
   park: "공원",
+  center: "주민센터",
 };
 
 export const NOISE_LABEL = ["매우 조용", "조용", "보통", "시끄러움", "매우 시끄러움"];
