@@ -126,7 +126,6 @@ export function ShelterSearch({
           clearOnFocus
           placeholder="역이나 장소 이름"
           leading={{ label: "현재 위치", onPick: pickHere }}
-          invalid={!origin && denied}
           onPick={setTyped}
         />
       )}
