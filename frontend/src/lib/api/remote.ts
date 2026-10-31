@@ -68,7 +68,9 @@ function split(b: Bounds, rows: number, cols: number): Bounds[] {
   });
 }
 
-// Works through a queue, and splits any area that came back cut short or timed out.
+// Works through a queue, and splits any area that came back cut short.
+// A failed area is not split and retried: on a busy DB that multiplies the requests and makes
+// every other call (quiet_routes too) time out. The BE caches each area for 5 minutes instead.
 async function layersIn(bounds: Bounds, sens: Sensitivity): Promise<MapLayers[]> {
   const queue = split(bounds, GRID_ROWS, GRID_COLS).map((area) => ({ area, splits: 0 }));
   const parts: MapLayers[] = [];
@@ -85,7 +87,7 @@ async function layersIn(bounds: Bounds, sens: Sensitivity): Promise<MapLayers[]>
         parts.push(layers);
         if (layers.edges.features.length >= EDGE_LIMIT && job.splits < MAX_SPLITS) splitUp(job);
       } catch {
-        if (job.splits < MAX_SPLITS) splitUp(job);
+        // Skip this area; the rest of the map still shows.
       }
     }
   }
