@@ -2,6 +2,7 @@
 
     .venv/bin/python scripts/load_static.py hotspots
     .venv/bin/python scripts/load_static.py places
+    .venv/bin/python scripts/load_static.py libraries # 서울시 공공도서관(마포구, 운영시간 포함)
     .venv/bin/python scripts/load_static.py sensors   # S-DoT 설치 위치 xlsx(환경·유동인구) → sensors
     .venv/bin/python scripts/load_static.py seed      # S-DoT 과거 CSV → sensor_obs
 
@@ -81,15 +82,12 @@ def load_hotspots():
     upsert("hotspots", rows, "area_cd")
 
 
-# 시연용 출발지·목적지. 좌표는 OpenStreetMap(Overpass)에서 가져왔다. id는 osm-<타입><OSM id>
+# 시연용 출발지·목적지(역·공원). 도서관은 libraries 명령으로 넣는다. 좌표는 OpenStreetMap(Overpass)에서 가져왔다. id는 osm-<타입><OSM id>
 PLACES = [
     ("osm-n13055976391", "station", "홍대입구역", 37.55663, 126.92345),
     ("osm-n5916874391", "station", "합정역", 37.54936, 126.91366),
     ("osm-n6041674902", "station", "상수역", 37.54776, 126.92289),
     ("osm-n6041674907", "station", "망원역", 37.55603, 126.91013),
-    ("osm-w688833853", "library", "마포중앙도서관", 37.56384, 126.90813),
-    ("osm-n368655259", "library", "마포구립서강도서관", 37.54771, 126.93192),
-    ("osm-w298530917", "library", "마포평생학습관", 37.55437, 126.92424),
     ("osm-w477482749", "park", "경의선숲길공원(연남)", 37.56277, 126.92193),
     ("osm-w216906544", "park", "와우근린공원", 37.55094, 126.92897),
     ("osm-w299780629", "park", "홍익문화공원", 37.55229, 126.92333),
@@ -103,6 +101,34 @@ def load_places():
         {"id": i, "kind": k, "name": n, "geom": f"SRID=4326;POINT({lng} {lat})"}
         for i, k, n, lat, lng in PLACES
     ], "id")
+
+
+def load_libraries():
+    # 서울시 공공도서관 현황정보에서 마포구 도서관을 넣는다. XCNTS가 위도, YDNTS가 경도다.
+    # 같은 도서관을 OSM 좌표로 넣어 둔 행(osm-…, library)은 운영시간이 없어서 지운다
+    key = os.environ["SEOUL_API_KEY"]
+    body = json.load(urllib.request.urlopen(
+        f"http://openapi.seoul.go.kr:8088/{key}/json/SeoulPublicLibraryInfo/1/1000/", timeout=30))
+    rows = []
+    for r in body["SeoulPublicLibraryInfo"]["row"]:
+        if r["CODE_VALUE"] != "마포구":
+            continue
+        week = dict(p.split(" : ", 1) for p in r["OP_TIME"].split(", ") if " : " in p)
+        rows.append({
+            "id": f"seoul-lib-{r['LBRRY_SEQ_NO']}",
+            "kind": "library",
+            "name": r["LBRRY_NAME"],
+            "address": r["ADRES"],
+            "open_info": {"weekday": week.get("평일"), "weekend": week.get("주말"), "closed": r["FDRM_CLOSE_DATE"]},
+            "geom": f"SRID=4326;POINT({float(r['YDNTS'])} {float(r['XCNTS'])})",
+        })
+    upsert("places", rows, "id")
+
+    url = f"{os.environ['SUPABASE_URL']}/rest/v1/places?id=like.osm-*&kind=eq.library"
+    svc = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+    urllib.request.urlopen(urllib.request.Request(
+        url, method="DELETE", headers={"apikey": svc, "Authorization": f"Bearer {svc}"}))
+    print("places: OSM 도서관 행 삭제")
 
 
 ENV_CSV = DATA_DIR / "S_DOT_ENV_2026.10.12-10.18.csv"
@@ -206,4 +232,4 @@ def load_seed():
 if __name__ == "__main__":
     load_env()
     cmd, *args = sys.argv[1:]
-    {"hotspots": load_hotspots, "places": load_places, "sensors": load_sensors, "seed": load_seed}[cmd](*args)
+    {"hotspots": load_hotspots, "places": load_places, "libraries": load_libraries, "sensors": load_sensors, "seed": load_seed}[cmd](*args)
