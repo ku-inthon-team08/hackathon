@@ -18,7 +18,7 @@ npm install
 cp .env.example .env.local
 ```
 
-`.env.local`의 `NEXT_PUBLIC_SUPABASE_ANON_KEY=` 에 **publishable 키** 넣기
+`.env.local`의 `NEXT_SUPABASE_ANON_KEY=` 에 **publishable 키** 넣기
 (Supabase 대시보드 → Project Settings → API Keys → `sb_publishable_...`)
 
 ```bash
@@ -42,7 +42,7 @@ npm run dev
 
 ## 🚀 마무리
 
-- [ ] Vercel 배포 (환경변수에 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_KAKAO_MAP_KEY`)
+- [ ] Vercel 배포 (환경변수에 `NEXT_SUPABASE_URL`, `NEXT_SUPABASE_ANON_KEY`, `NEXT_KAKAO_MAP_KEY`)
 - [ ] 루트 `README.md` 채우기
 - [ ] 발표 전에 Supabase 대시보드 → Advisors에서 보안 경고 확인
 

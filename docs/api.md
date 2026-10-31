@@ -11,14 +11,14 @@ FE는 모든 데이터를 `supabase.rpc()`로 받습니다. 서울 열린데이�
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  process.env.NEXT_SUPABASE_URL!,
+  process.env.NEXT_SUPABASE_ANON_KEY!,
 )
 
 const { data, error } = await supabase.rpc('nearby_shelters', { lat: 37.5894, lng: 127.0323 })
 ```
 
-- URL과 anon 키는 BE에게 받아 Next.js 프로젝트의 `.env.local`에 `NEXT_PUBLIC_` 접두사를 붙여 넣습니다.
+- URL과 anon 키는 BE에게 받아 Next.js 프로젝트의 `.env.local`에 `NEXT_` 접두사를 붙여 넣습니다.
 - `SUPABASE_SERVICE_ROLE_KEY`는 모든 권한을 가진 키라서 FE 코드에 절대 넣지 않습니다.
 
 ## 공통 규칙
