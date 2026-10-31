@@ -2,6 +2,9 @@
 
 Goes through the REST API with SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY from .env, so no
 DB password is needed. The tables come from supabase/migrations/*_init_schema.sql.
+For a large network such as all of Seoul (250k edges) the 1000-row batches and the --replace
+DELETE hit the 8 s REST time limit; use scripts/road_network/import_road_network.sql instead,
+which replaces the whole network inside the DB in one transaction (replace_road_network()).
 Rows are upserted by id, so re-running is safe. Pass --replace when switching to another
 area: it deletes every road row first, and edge_cell / edge_road_prior / edge_area rows go with
 them (on delete cascade). After uploading, run in SQL:
