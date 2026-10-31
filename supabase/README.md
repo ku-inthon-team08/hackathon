@@ -157,7 +157,8 @@ erDiagram
 
 ## 남은 일
 
-- [ ] 확장 켜기: `pgrouting`(경로), `pg_cron`·`pg_net`(수집 주기 실행). 대시보드 Database → Extensions
+- [x] 확장 켜기: `postgis`, `pgrouting`, `pg_cron`, `pg_net` (켜져 있음)
+- [x] 마이그레이션 3개 원격 적용 + 기록 정리 완료 (`npx supabase migration list`로 확인)
 - [ ] 고정 데이터 적재: `hotspots`, `sensors`, `places` (도로망은 적재 완료: 마포, 노드 12,485 · 구간 17,076)
 - [ ] Edge Function 수집기: `congestion_obs`, `sensor_obs`에 upsert하고 `fetch_log`에 기록
 - [ ] 정할 것: 혼잡도 예측(`best_times`용)을 저장할 테이블, 쉼터 운영시간 컬럼, `edge_exposure.confidence` 값 체계

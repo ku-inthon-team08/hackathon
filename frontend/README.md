@@ -1,13 +1,13 @@
 # Sensory Map frontend
 
-Next.js app running on local mock data. The data shapes follow `../docs/api.md`.
-With a Kakao key it shows the real map and real place search.
+Next.js app. With `NEXT_PUBLIC_SUPABASE_*` set it calls the Supabase RPCs in `../docs/api.md`;
+without them it runs on local mock data. With a Kakao key it shows the real map and real place search.
 
 ## Run
 
 ```bash
 npm install
-cp .env.example .env.local   # optional: add the Kakao JavaScript key
+cp .env.example .env.local   # fill in the Supabase publishable key (and optionally the Kakao key)
 npm run dev
 ```
 
@@ -19,7 +19,8 @@ src/
 ├─ components/   shared UI, sheets, map stand-ins
 ├─ hooks/        useAsync, usePreview
 └─ lib/
-   ├─ api/          mock data functions and types
+   ├─ api/          index (picks remote or mock), remote (Supabase RPC), mock, types
+   ├─ supabase.ts   Supabase client (null when env vars are missing)
    ├─ kakao.ts      Kakao SDK loader, place search
    ├─ storage.ts    sensitivity, current trip, ratings
    ├─ location.ts   geolocation, map bounds
