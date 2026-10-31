@@ -1,0 +1,272 @@
+# BE API (Supabase RPC)
+
+FE는 모든 데이터를 `supabase.rpc()`로 받습니다. 서울 열린데이터 API는 키가 노출되지 않도록 BE만 호출합니다.
+
+> 지금은 응답 형식을 맞추기 위한 **가짜 데이터**입니다. 응답의 `mock: true`가 그 표시입니다.
+> BE가 실제 로직으로 바꿔도 형식은 그대로 둡니다. 형식을 바꿔야 하면 BE와 먼저 이야기해 주세요.
+
+## 호출 방법
+
+```ts
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+)
+
+const { data, error } = await supabase.rpc('nearby_shelters', { lat: 37.5894, lng: 127.0323 })
+```
+
+- URL과 anon 키는 BE에게 받아 Next.js 프로젝트의 `.env.local`에 `NEXT_PUBLIC_` 접두사를 붙여 넣습니다.
+- `SUPABASE_SERVICE_ROLE_KEY`는 모든 권한을 가진 키라서 FE 코드에 절대 넣지 않습니다.
+
+## 공통 규칙
+
+- **좌표**: 인자와 목록 항목은 `lat`, `lng`. GeoJSON 안의 좌표만 `[lng, lat]` 순서입니다.
+- **민감도** `sens_sound`, `sens_light`, `sens_crowd`: 0~3 (0이면 무시, 기본 2). 온보딩 3문항 답을 그대로 넣습니다.
+- **감각 부하** `load`: 0~1, 낮을수록 편한 곳. `load_level`: `low` / `mid` / `high`.
+- **혼잡도** `crowd_level`: 1 여유 · 2 보통 · 3 약간 붐빔 · 4 붐빔.
+- **소음 등급** `noise_grade`: 1 매우 조용(45dB 미만) · 2 조용(55 미만) · 3 보통(65 미만) · 4 시끄러움(75 미만) · 5 매우 시끄러움.
+- **시간**: UTC ISO 문자열 (`2026-10-31T08:00:00+00:00`). 화면에는 한국 시간으로 바꿔 보여줍니다.
+- **보행 속도** `walk_mpm`: m/분, 기본 75. 고령자·아이 동반 모드면 60 정도를 넘깁니다.
+
+## 함수 목록
+
+| 함수 | 쓰는 화면 | 데이터 |
+|---|---|---|
+| [`nearby_shelters`](#nearby_shelters) | 현장 쉼터 큰 버튼 | 가짜 |
+| [`place_detail`](#place_detail) | 장소 상세, 감각 미리듣기 | 가짜 |
+| [`quiet_routes`](#quiet_routes) | 출발 전 계획: 경로 후보 3개 | 가짜 |
+| [`best_times`](#best_times) | 출발 전 계획: 덜 붐비는 시간대 | 가짜 |
+| [`map_layers`](#map_layers) | 지도 레이어(소리·빛·인파) | 가짜 |
+| [`data_status`](#data_status) | "n분 전 데이터" 표시 | 실제 |
+
+BE가 하지 않는 것:
+- **목적지 검색**: 주소·장소 이름 검색은 지도 SDK의 검색 기능으로 하고, BE에는 좌표만 넘깁니다.
+- **감각 미리듣기 소리**: FE(Web Audio)가 `noise_db`·`noise_grade`로 소리를 만듭니다.
+
+---
+
+### nearby_shelters
+
+현재 위치에서 도보 `minutes`분 안의 쉼터. 부하 낮은 순(같으면 가까운 순)으로 정렬됩니다.
+
+| 인자 | 타입 | 기본값 |
+|---|---|---|
+| `lat`, `lng` | number | 필수 |
+| `minutes` | number | 10 |
+| `sens_sound`, `sens_light`, `sens_crowd` | number | 2 |
+| `walk_mpm` | number | 75 |
+
+```json
+{
+  "mock": true,
+  "items": [
+    {
+      "id": 900001,
+      "kind": "library",
+      "name": "샘플 구립도서관",
+      "lat": 37.590066,
+      "lng": 127.034888,
+      "distance_m": 240,
+      "walk_min": 4,
+      "is_open": true,
+      "load": 0.13,
+      "load_level": "low"
+    }
+  ]
+}
+```
+
+### place_detail
+
+장소를 눌렀을 때 보여줄 근거. 좌표는 목록(`nearby_shelters`)에 있는 값을 씁니다.
+
+| 인자 | 타입 |
+|---|---|
+| `place_id` | number |
+
+```json
+{
+  "mock": true,
+  "place": {
+    "id": 900001,
+    "kind": "library",
+    "name": "샘플 장소 900001",
+    "address": "서울특별시 (샘플 주소)",
+    "open_info": { "open": "09:00", "close": "22:00", "closed": "매주 월요일" }
+  },
+  "evidence": {
+    "noise": { "db": 47.5, "grade": 2, "observed_at": "2026-10-31T07:00:00+00:00", "distance_m": 180, "confidence": 0.72, "source": "S-DoT" },
+    "light": { "lux": 85, "observed_at": "2026-10-31T07:00:00+00:00", "distance_m": 180, "confidence": 0.72, "source": "S-DoT" },
+    "crowd": { "level": 1, "label": "여유", "area_nm": "샘플 번화가", "observed_at": "2026-10-31T07:37:00+00:00", "source": "실시간 도시데이터" }
+  }
+}
+```
+
+- `distance_m`: 근거로 쓴 센서까지의 거리. `confidence`(0~1)가 낮으면 "추정값"으로 표시합니다.
+
+### quiet_routes
+
+경로 후보 3개. 항상 `shortest`(최단) · `balanced`(균형) · `quietest`(가장 조용한) 순서입니다.
+
+| 인자 | 타입 | 기본값 |
+|---|---|---|
+| `from_lat`, `from_lng`, `to_lat`, `to_lng` | number | 필수 |
+| `sens_sound`, `sens_light`, `sens_crowd` | number | 2 |
+| `walk_mpm` | number | 75 |
+
+```json
+{
+  "mock": true,
+  "routes": [
+    {
+      "kind": "balanced",
+      "label": "균형",
+      "distance_m": 479,
+      "walk_min": 7,
+      "avg_load": 0.4,
+      "load_level": "mid",
+      "extra_distance_pct": 4,
+      "exposure_change_pct": -36,
+      "geometry": { "type": "LineString", "coordinates": [[127.0323, 37.5894], [127.03113, 37.587305], [127.029, 37.5862]] }
+    }
+  ]
+}
+```
+
+- `extra_distance_pct`: 최단 경로보다 몇 % 더 걷는지.
+- `exposure_change_pct`: 최단 경로 대비 감각 노출(부하 × 거리) 변화. 음수면 그만큼 덜 지칩니다. 예: "4% 더 걷고 노출 36% 감소".
+
+### best_times
+
+목적지 근처 번화가의 앞으로 `hours`시간 예상 혼잡·소음. 가장 덜 붐비는 3개 시간대에 `recommended: true`가 붙습니다.
+
+| 인자 | 타입 | 기본값 |
+|---|---|---|
+| `lat`, `lng` | number | 필수 |
+| `hours` | number | 12 |
+
+```json
+{
+  "mock": true,
+  "area": { "area_cd": "POI000", "area_nm": "샘플 번화가", "distance_m": 300 },
+  "slots": [
+    { "at": "2026-10-31T08:00:00+00:00", "crowd_level": 3, "crowd_label": "약간 붐빔", "noise_db": 68, "noise_grade": 4, "recommended": false }
+  ]
+}
+```
+
+### map_layers
+
+지도 화면 범위 안의 레이어 3개. 모두 GeoJSON FeatureCollection이라 지도 라이브러리에 바로 넣을 수 있습니다.
+
+| 인자 | 타입 | 기본값 |
+|---|---|---|
+| `min_lat`, `min_lng`, `max_lat`, `max_lng` | number | 필수 |
+| `sens_sound`, `sens_light`, `sens_crowd` | number | 2 |
+
+```json
+{
+  "mock": true,
+  "edges": {
+    "type": "FeatureCollection",
+    "features": [{
+      "type": "Feature",
+      "geometry": { "type": "LineString", "coordinates": [[127.024, 37.5875], [127.036, 37.5875]] },
+      "properties": { "id": 3, "noise_n": 0.85, "light_n": 0.7, "crowd_n": 0.8, "load": 0.78, "load_level": "high", "confidence": 0.6 }
+    }]
+  },
+  "sensors": {
+    "type": "FeatureCollection",
+    "features": [{
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [127.026, 37.5845] },
+      "properties": { "id": "MOCK-1", "kind": "env", "noise_db": 53, "noise_grade": 2, "lux": 70, "observed_at": "2026-10-31T07:00:00+00:00" }
+    }]
+  },
+  "hotspots": {
+    "type": "FeatureCollection",
+    "features": [{
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [127.03, 37.5875] },
+      "properties": { "area_cd": "POI000", "area_nm": "샘플 번화가", "crowd_level": 4, "crowd_label": "붐빔", "observed_at": "2026-10-31T07:37:00+00:00" }
+    }]
+  }
+}
+```
+
+- 소리·빛·인파 레이어는 도로 구간의 `noise_n`·`light_n`·`crowd_n`(0~1)으로 색을 칠하고, 종합 레이어는 `load`를 씁니다.
+
+### data_status
+
+데이터 종류별 마지막 수집 성공 시각. 이 함수만 처음부터 실제 데이터이고, 수집기가 돌기 전에는 `sources`가 빈 배열입니다.
+
+```json
+{
+  "mock": false,
+  "sources": [
+    { "source": "citydata", "last_ok_at": "2026-10-31T07:30:48+00:00", "age_min": 12, "last_try_ok": false }
+  ]
+}
+```
+
+- `source`: `citydata`(혼잡도) · `sdot_env`(소음·조도) · `sdot_flow`(유동인구).
+- `last_try_ok: false`면 마지막 수집이 실패해서 예전 값을 보여주는 중입니다.
+
+## TypeScript 타입
+
+```ts
+export type LoadLevel = 'low' | 'mid' | 'high'
+export type PlaceKind = 'library' | 'park'
+export type LineString = { type: 'LineString'; coordinates: [number, number][] }
+export type Point = { type: 'Point'; coordinates: [number, number] }
+export type FeatureCollection<G, P> = { type: 'FeatureCollection'; features: { type: 'Feature'; geometry: G; properties: P }[] }
+
+export interface Shelter {
+  id: number; kind: PlaceKind; name: string; lat: number; lng: number
+  distance_m: number; walk_min: number; is_open: boolean; load: number; load_level: LoadLevel
+}
+export interface NearbyShelters { mock: boolean; items: Shelter[] }
+
+export interface PlaceDetail {
+  mock: boolean
+  place: { id: number; kind: PlaceKind; name: string; address: string | null; open_info: Record<string, string> | null }
+  evidence: {
+    noise: { db: number; grade: number; observed_at: string; distance_m: number; confidence: number; source: string }
+    light: { lux: number; observed_at: string; distance_m: number; confidence: number; source: string }
+    crowd: { level: number; label: string; area_nm: string; observed_at: string; source: string }
+  }
+}
+
+export interface Route {
+  kind: 'shortest' | 'balanced' | 'quietest'; label: string
+  distance_m: number; walk_min: number; avg_load: number; load_level: LoadLevel
+  extra_distance_pct: number | null; exposure_change_pct: number | null; geometry: LineString
+}
+export interface QuietRoutes { mock: boolean; routes: Route[] }
+
+export interface TimeSlot {
+  at: string; crowd_level: number; crowd_label: string; noise_db: number; noise_grade: number; recommended: boolean
+}
+export interface BestTimes { mock: boolean; area: { area_cd: string; area_nm: string; distance_m: number }; slots: TimeSlot[] }
+
+export interface MapLayers {
+  mock: boolean
+  edges: FeatureCollection<LineString, {
+    id: number; noise_n: number; light_n: number; crowd_n: number; load: number; load_level: LoadLevel; confidence: number
+  }>
+  sensors: FeatureCollection<Point, {
+    id: string; kind: 'env' | 'flow'; noise_db: number | null; noise_grade: number | null; lux: number | null; observed_at: string
+  }>
+  hotspots: FeatureCollection<Point, {
+    area_cd: string; area_nm: string; crowd_level: number; crowd_label: string; observed_at: string
+  }>
+}
+
+export interface DataStatus {
+  mock: boolean
+  sources: { source: string; last_ok_at: string | null; age_min: number | null; last_try_ok: boolean }[]
+}
+```
