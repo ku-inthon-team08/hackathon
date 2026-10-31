@@ -121,42 +121,61 @@ But it has known risks. Rules below handle them.
 - Must work one-handed (bottom center).
 
 ---
-
 ## 3. Mascot Plan
+
+Full rules, sizes, screen map, and code helper: see `mascot-usage.md`.
 
 ### Usage Rules
 - **Calm poses only.** Keep the "nicely dumb cute" look. No dramatic poses.
 - **Never on the map itself.** It clutters the main view.
-- Use in onboarding, empty states, errors, loading, and feedback.
-- Small size in lists. Larger only on full-screen states.
-- Always grounded with a soft floor shadow (same as the deck).
+- **One mascot per screen.**
+- Use in onboarding, sheet headers, empty states, errors, loading, and feedback.
+- Small in cards and chips. Larger only on full-screen states.
+- Always grounded with a soft floor shadow (same as the deck). Never stretch.
+- Always pair with text. The mascot is never the only signal.
 - No looping animation. A single gentle fade-in at most.
+- Files: `/assets/mascot/horangi-3d-<pose>.webp` (transparent). Pick poses from `mascot.js`.
 
-### Existing 19 Poses → Where to Use
+### 23 Poses → Where to Use
 
 | Pose file (`horangi-3d-…`) | Use in |
 |---|---|
 | `wave` | Onboarding welcome |
 | `sit-wave` | Onboarding finish ("All set") |
-| `peek` | Crowd question (onboarding) |
-| `wink` | Feedback thanks |
-| `sit` | Refuge result card header |
-| `thumbs-up` | Feedback accepted |
-| `heart` | Feedback thanks (alt) |
-| `point-present` | Route compare intro |
-| `point-side` | Route card "recommended" hint |
-| `search` | Search page / location-denied fallback |
-| `idea` | Tip cards (e.g. "light defaults to 2") |
+| `shhhh` | Noise question, refuge button icon, sensory preview, quiet route card |
 | `hold-lightbulb` | Light question (onboarding) |
+| `peek-side` | Crowd question (onboarding), out of Seoul (422) |
+| `peek-down` | Place detail sheet header, location-denied fallback |
+| `peek` | Peeking behind a button (spare) |
+| `point-present` | Refuge TOP 3 header, route compare header |
+| `point-side` | "Go here" button in place detail |
+| `lie-down` | #1 refuge card ("rest here") |
+| `lie-down-side` | Empty state: "This info isn't available", no refuge in range, 503 |
+| `sleep-curled` | Night gap (01–05h city data empty) |
+| `search` | Loading / searching refuges |
+| `hold-tablet` | Evidence section, stale data chip |
+| `walking` | Navigation header |
+| `hold-phone` | Start guidance (optional) |
+| `stand` | Feedback question, generic fallback |
+| `heart` | Rated "quiet" |
+| `thumbs-up` | Rated "normal" |
+| `wink` | Rated "noisy", demo mode chip |
+| `sit` | Already rated (429) |
+| `idea` | First-time tip (layer toggle help) |
 | `settings-gear` | Edit sensitivity sheet |
-| `hold-phone` | Navigation start / mic measurement |
-| `hold-tablet` | Place detail forecast section |
-| `lie-down` | Refuge found ("rest here") |
-| `lie-down-side` | Empty state: "This info isn't available" |
-| `sleep-curled` | Night gap (01–05h data empty) / loading |
-| `stand` | Generic fallback |
+
+### Optional Extra Poses
+Not needed for the MVP demo. `shhhh` covers several spots for now.
+
+| Pose | Would replace | Where |
+|---|---|---|
+| `cover-ears` | `shhhh` | Noise question, "noisy" rating |
+| `headphones` | `shhhh` | Sensory preview button |
+| `cover-eyes` | `hold-lightbulb` | Light question |
+| `sorry` | `wink` / `lie-down-side` | "Noisy" rating, errors |
 
 ---
+
 
 ## 4. Build Order
 
