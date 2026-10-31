@@ -2,7 +2,7 @@
 
 FE는 모든 데이터를 `supabase.rpc()`로 받습니다. 서울 열린데이터 API는 키가 노출되지 않도록 BE만 호출합니다.
 
-> 지금은 응답 형식을 맞추기 위한 **가짜 데이터**입니다. 응답의 `mock: true`가 그 표시입니다.
+> 모든 함수가 실제 데이터를 돌려줍니다(`mock: false`). 아래 예시의 값은 형식을 보여주기 위한 샘플입니다.
 > BE가 실제 로직으로 바꿔도 형식은 그대로 둡니다. 형식을 바꿔야 하면 BE와 먼저 이야기해 주세요.
 
 ## 호출 방법
@@ -35,11 +35,11 @@ const { data, error } = await supabase.rpc('nearby_shelters', { lat: 37.5894, ln
 
 | 함수 | 쓰는 화면 | 데이터 |
 |---|---|---|
-| [`nearby_shelters`](#nearby_shelters) | 현장 쉼터 큰 버튼 | 가짜 |
-| [`place_detail`](#place_detail) | 장소 상세, 감각 미리듣기 | 가짜 |
-| [`quiet_routes`](#quiet_routes) | 출발 전 계획: 경로 후보 3개 | 가짜 |
-| [`best_times`](#best_times) | 출발 전 계획: 덜 붐비는 시간대 | 가짜 |
-| [`map_layers`](#map_layers) | 지도 레이어(소리·빛·인파) | 가짜 |
+| [`nearby_shelters`](#nearby_shelters) | 현장 쉼터 큰 버튼 | 실제 |
+| [`place_detail`](#place_detail) | 장소 상세, 감각 미리듣기 | 실제 |
+| [`quiet_routes`](#quiet_routes) | 출발 전 계획: 경로 후보 3개 | 실제 |
+| [`best_times`](#best_times) | 출발 전 계획: 덜 붐비는 시간대 | 실제 |
+| [`map_layers`](#map_layers) | 지도 레이어(소리·빛·인파) | 실제 |
 | [`data_status`](#data_status) | "n분 전 데이터" 표시 | 실제 |
 
 BE가 하지 않는 것:
@@ -50,7 +50,7 @@ BE가 하지 않는 것:
 
 ### nearby_shelters
 
-현재 위치에서 도보 `minutes`분 안의 쉼터. 부하 낮은 순(같으면 가까운 순)으로 정렬됩니다.
+현재 위치에서 도보 `minutes`분 안(직선거리)의 쉼터(도서관·공원). 지금 열린 곳 먼저, 그다음 부하 낮은 순(같으면 가까운 순)으로 정렬됩니다.
 
 | 인자 | 타입 | 기본값 |
 |---|---|---|
@@ -80,7 +80,8 @@ BE가 하지 않는 것:
 ```
 
 - `id`는 문자열입니다(DB `places.id`가 text).
-- `places`에 운영시간 데이터가 아직 없어서, 실제 데이터로 바뀐 뒤에도 당분간 `is_open`은 늘 `true`입니다.
+- `is_open`: 도서관은 서울시 공공도서관 운영시간·정기 휴관일로 판단합니다(법정공휴일은 반영 안 함). 공원은 늘 `true`.
+- 도서관의 `load`는 실내 가정값(소음 0.15 · 조도 0.3 · 인파 0.3), 공원은 둘레 100m 도로의 감각값입니다.
 
 ### place_detail
 
@@ -109,7 +110,8 @@ BE가 하지 않는 것:
 ```
 
 - `distance_m`: 근거로 쓴 센서까지의 거리. `confidence`(0~1)가 낮으면 "추정값"으로 표시합니다.
-- DB `places`에 주소·운영시간 컬럼이 없어서, 실제 데이터에서는 `address`·`open_info`가 `null`입니다.
+- 도서관은 `address`와 `open_info`(`{"weekday": "09:00~22:00", "weekend": "09:00~20:00", "closed": "매주 화요일 및 법정공휴일"}`)가 있고, 공원·역은 `null`입니다.
+- 없는 `place_id`면 오류 `NOT_FOUND`(HTTP 400)를 돌려줍니다.
 
 ### quiet_routes
 
