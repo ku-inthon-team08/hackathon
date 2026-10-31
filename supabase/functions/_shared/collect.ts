@@ -35,6 +35,48 @@ export function num(s: string | undefined) {
   return Number.isFinite(n) ? n : null;
 }
 
+// REST는 한 번에 1000행까지만 돌려준다. 서울 전체 센서(1000개 넘음)를 읽을 때는 페이지를 넘긴다
+export async function selectAll<T>(
+  table: string,
+  columns: string,
+  // deno-lint-ignore no-explicit-any
+  filter: (q: any) => any = (q) => q, // supabase-js의 필터 빌더 타입이 테이블마다 달라 any로 받는다
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await filter(db.from(table).select(columns)).order(columns.split(",")[0]).range(from, from + 999);
+    if (error) throw new Error(error.message);
+    rows.push(...data);
+    if (data.length < 1000) return rows;
+  }
+}
+
+// 요청마다 8초 제한이 있어 큰 upsert는 나눠 보낸다
+export async function upsertChunks(table: string, rows: object[], onConflict: string, size = 1000) {
+  for (let i = 0; i < rows.length; i += size) {
+    const { error } = await db.from(table).upsert(rows.slice(i, i + size), { onConflict });
+    if (error) throw new Error(`${table}: ${error.message}`);
+  }
+}
+
+// 서울 API를 한꺼번에 수백 번 부르지 않게 동시에 limit개씩만 부른다
+export async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>) {
+  const results: PromiseSettledResult<R>[] = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      try {
+        results[i] = { status: "fulfilled", value: await fn(items[i]) };
+      } catch (reason) {
+        results[i] = { status: "rejected", reason };
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
 // 수집 결과를 fetch_log에 남기고 응답을 만든다.
 // 도로 구간 노출값(refresh_edge_exposure)은 rpc 시간 제한을 넘어서 pg_cron이 따로 다시 계산한다
 export async function run(source: string, job: () => Promise<number>) {
