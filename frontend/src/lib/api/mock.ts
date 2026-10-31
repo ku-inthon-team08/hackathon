@@ -79,7 +79,7 @@ export function nearbyShelters(
           const bearing = ((n * 72) / 180) * Math.PI;
           const load = sensoryLoad(noise, light, crowd, sens);
           return {
-            id: 900000 + n,
+            id: `mock-${n}`,
             kind,
             name,
             lat: round(lat + (dist * Math.cos(bearing)) / 111320, 6),
@@ -100,12 +100,12 @@ export function nearbyShelters(
   );
 }
 
-export function placeDetail(placeId: number): Promise<PlaceDetail> {
+export function placeDetail(placeId: string): Promise<PlaceDetail> {
   const build = (): PlaceDetail => ({
     mock: true,
     place: {
       id: placeId,
-      kind: placeId % 2 === 0 ? "park" : "library",
+      kind: /[02468]$/.test(placeId) ? "park" : "library",
       name: `샘플 장소 ${placeId}`,
       address: "서울특별시 (샘플 주소)",
       open_info: { open: "09:00", close: "22:00", closed: "매주 월요일" },
