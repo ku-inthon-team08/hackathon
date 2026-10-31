@@ -2,7 +2,7 @@
 
     .venv/bin/python scripts/load_static.py hotspots
     .venv/bin/python scripts/load_static.py places
-    .venv/bin/python scripts/load_static.py libraries # 서울시 공공도서관(마포구, 운영시간 포함)
+    .venv/bin/python scripts/load_static.py shelters  # 쉼터 후보: 공공·작은도서관, 주민센터, 공원(마포구)
     .venv/bin/python scripts/load_static.py sensors   # S-DoT 설치 위치 xlsx(환경·유동인구) → sensors
     .venv/bin/python scripts/load_static.py seed      # S-DoT 과거 CSV → sensor_obs
 
@@ -98,37 +98,85 @@ PLACES = [
 
 def load_places():
     upsert("places", [
-        {"id": i, "kind": k, "name": n, "geom": f"SRID=4326;POINT({lng} {lat})"}
+        {"id": i, "kind": k, "category": "역" if k == "station" else "공원", "name": n,
+         "geom": f"SRID=4326;POINT({lng} {lat})"}
         for i, k, n, lat, lng in PLACES
     ], "id")
 
 
-def load_libraries():
-    # 서울시 공공도서관 현황정보에서 마포구 도서관을 넣는다. XCNTS가 위도, YDNTS가 경도다.
-    # 같은 도서관을 OSM 좌표로 넣어 둔 행(osm-…, library)은 운영시간이 없어서 지운다
+def seoul_rows(service):
+    # 서울 열린데이터광장 API에서 전체 행을 1000건씩 받는다
     key = os.environ["SEOUL_API_KEY"]
-    body = json.load(urllib.request.urlopen(
-        f"http://openapi.seoul.go.kr:8088/{key}/json/SeoulPublicLibraryInfo/1/1000/", timeout=30))
-    rows = []
-    for r in body["SeoulPublicLibraryInfo"]["row"]:
-        if r["CODE_VALUE"] != "마포구":
-            continue
-        week = dict(p.split(" : ", 1) for p in r["OP_TIME"].split(", ") if " : " in p)
-        rows.append({
-            "id": f"seoul-lib-{r['LBRRY_SEQ_NO']}",
-            "kind": "library",
-            "name": r["LBRRY_NAME"],
-            "address": r["ADRES"],
-            "open_info": {"weekday": week.get("평일"), "weekend": week.get("주말"), "closed": r["FDRM_CLOSE_DATE"]},
-            "geom": f"SRID=4326;POINT({float(r['YDNTS'])} {float(r['XCNTS'])})",
-        })
-    upsert("places", rows, "id")
+    get = lambda a, b: json.load(urllib.request.urlopen(
+        f"http://openapi.seoul.go.kr:8088/{key}/json/{service}/{a}/{b}/", timeout=30))[service]
+    total = get(1, 1)["list_total_count"]
+    return [r for a in range(1, total + 1, 1000) for r in get(a, min(a + 999, total))["row"]]
 
-    url = f"{os.environ['SUPABASE_URL']}/rest/v1/places?id=like.osm-*&kind=eq.library"
-    svc = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
-    urllib.request.urlopen(urllib.request.Request(
-        url, method="DELETE", headers={"apikey": svc, "Authorization": f"Bearer {svc}"}))
-    print("places: OSM 도서관 행 삭제")
+
+def library_row(r, prefix, category):
+    # 도서관 API 공통: XCNTS가 위도, YDNTS가 경도. OP_TIME은 "평일 : 09:00~22:00, 주말 : 09:00~20:00"
+    week = dict(p.split(" : ", 1) for p in r["OP_TIME"].split(", ") if " : " in p)
+    return {
+        "id": f"{prefix}-{r['LBRRY_SEQ_NO']}",
+        "kind": "library",
+        "category": category,
+        "name": r["LBRRY_NAME"],
+        "address": r["ADRES"],
+        "open_info": {"weekday": week.get("평일"), "weekend": week.get("주말"), "closed": r["FDRM_CLOSE_DATE"]},
+        "geom": f"SRID=4326;POINT({float(r['YDNTS'])} {float(r['XCNTS'])})",
+    }
+
+
+def load_shelters():
+    # 쉼터 후보(마포구): 공공도서관 · 작은도서관 · 주민센터 · 공원
+    # 주민센터는 무더위쉼터 목록의 "공공청사"에서 가져온다(경로당 같은 회원 전용 시설은 뺀다).
+    # 무더위쉼터 운영 요일·시간을 운영시간으로 쓰고, 요일에 없는 날은 휴관으로 적는다
+    rows = []
+    for r in seoul_rows("SeoulPublicLibraryInfo"):
+        if r["CODE_VALUE"] == "마포구":
+            rows.append(library_row(r, "seoul-lib", "공공도서관"))
+    for r in seoul_rows("SeoulSmallLibraryInfo"):
+        if r["CODE_VALUE"] == "마포구" and r["XCNTS"] and r["YDNTS"]:
+            rows.append(library_row(r, "seoul-smlib", "작은도서관"))
+
+    days = ["월", "화", "수", "목", "금", "토", "일"]
+    centers = {}
+    for r in seoul_rows("TbGtnHwcwP"):
+        if r["FACILITY_TYPE2"] != "공공청사" or "마포구" not in r["R_DETL_ADD"] or not r["LAT"]:
+            continue
+        open_days = set(r["OPR_DAYS"].replace(" ", "").split(","))
+        hours = f"{r['OPR_START_TIME']}~{r['OPR_END_TIME']}"
+        centers[r["R_AREA_NM"]] = {
+            "id": f"seoul-center-{r['R_AREA_NM']}",
+            "kind": "center",
+            "category": "주민센터",
+            "name": r["R_AREA_NM"],
+            "address": r["R_DETL_ADD"],
+            "open_info": {
+                "weekday": hours,
+                "weekend": hours if open_days & {"토", "일"} else None,
+                "closed": ", ".join(f"매주 {d}요일" for d in days if d not in open_days) or None,
+            },
+            "geom": f"SRID=4326;POINT({float(r['LON'])} {float(r['LAT'])})",
+        }
+    rows += centers.values()
+
+    # 서울시 주요 공원. 시연용으로 OSM에서 넣어 둔 공원과 같은 곳은 건너뛴다
+    osm_parks = [n for _, k, n, _, _ in PLACES if k == "park"]
+    for r in seoul_rows("SearchParkInfoService"):
+        if "마포구" not in (r["PARK_ADDR"] or "") or any(r["PARK_NM"][:4] in n for n in osm_parks):
+            continue
+        rows.append({
+            "id": f"seoul-park-{r['SN']}",
+            "kind": "park",
+            "category": "공원",
+            "name": r["PARK_NM"],
+            "address": r["PARK_ADDR"],
+            "geom": f"SRID=4326;POINT({float(r['XCRD'])} {float(r['YCRD'])})",
+        })
+
+    for kind in ("library", "center", "park"):
+        upsert("places", [r for r in rows if r["kind"] == kind], "id")
 
 
 ENV_CSV = DATA_DIR / "S_DOT_ENV_2026.10.12-10.18.csv"
@@ -232,4 +280,4 @@ def load_seed():
 if __name__ == "__main__":
     load_env()
     cmd, *args = sys.argv[1:]
-    {"hotspots": load_hotspots, "places": load_places, "libraries": load_libraries, "sensors": load_sensors, "seed": load_seed}[cmd](*args)
+    {"hotspots": load_hotspots, "places": load_places, "shelters": load_shelters, "sensors": load_sensors, "seed": load_seed}[cmd](*args)
