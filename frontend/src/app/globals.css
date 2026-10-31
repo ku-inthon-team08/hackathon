@@ -689,14 +689,16 @@ svg.lucide {
 }
 
 /* Maps */
+/* isolation keeps Kakao's internal z-indexes from rising above the map controls. */
 .map {
   position: absolute;
   inset: 0;
   overflow: hidden;
+  isolation: isolate;
   background: var(--map);
 }
 
-.map svg {
+.map > svg {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -749,6 +751,31 @@ svg.lucide {
   position: relative;
   font-size: 12px;
   font-weight: 700;
+}
+
+.heat-canvas {
+  position: absolute;
+  pointer-events: none;
+  transition: opacity 200ms ease-out;
+}
+
+/* Routes are the subject while comparing, so the heat steps back. */
+.map.routing .heat-canvas {
+  opacity: 0.55;
+}
+
+.heat-scale {
+  width: 64px;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, var(--level-low), var(--level-mid), var(--level-high));
+}
+
+.route-line.other {
+  stroke: var(--text-muted);
+  stroke-opacity: 0.6;
+  stroke-width: 4;
+  cursor: pointer;
 }
 
 .route-line {

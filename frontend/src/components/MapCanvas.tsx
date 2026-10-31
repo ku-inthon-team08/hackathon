@@ -4,11 +4,18 @@
 // drawing of the same GeoJSON.
 import { useAsync } from "@/hooks/useAsync";
 import { levelOf } from "@/lib/format";
+import type { HeatValue } from "@/lib/heat";
 import { KAKAO_KEY, loadKakao } from "@/lib/kakao";
 import type { Bounds, HotspotProps, LineString, MapLayers, Point } from "@/lib/api/types";
 import { KakaoMap } from "./KakaoMap";
 
-export type Layer = "load" | "noise_n" | "light_n" | "crowd_n";
+export type Layer = HeatValue;
+
+export interface MapRoute {
+  id: string;
+  line: LineString;
+  selected: boolean;
+}
 
 function project(b: Bounds, [lng, lat]: [number, number]) {
   return {
@@ -26,10 +33,11 @@ function toPoints(b: Bounds, line: LineString) {
     .join(" ");
 }
 
-// Frames the route with some room around it.
-function routeBounds(line: LineString): Bounds {
-  const lngs = line.coordinates.map((c) => c[0]);
-  const lats = line.coordinates.map((c) => c[1]);
+// Frames the routes with some room around them.
+function routeBounds(routes: MapRoute[]): Bounds {
+  const coordinates = routes.flatMap((route) => route.line.coordinates);
+  const lngs = coordinates.map((c) => c[0]);
+  const lats = coordinates.map((c) => c[1]);
   const pad = Math.max(Math.max(...lngs) - Math.min(...lngs), Math.max(...lats) - Math.min(...lats)) * 0.2;
   return {
     min_lng: Math.min(...lngs) - pad,
@@ -48,25 +56,35 @@ export function SensoryMap({
   bounds,
   layers,
   layer,
-  route,
+  routes,
+  routeLabel,
+  onRoutePick,
   onHotspot,
 }: {
   bounds: Bounds;
   layers?: MapLayers;
   layer: Layer;
-  // When set, the view moves to the route and draws it over the heat.
-  route?: { line: LineString; label: string };
+  // When set, the view moves to the routes and draws them over the heat.
+  routes?: MapRoute[];
+  routeLabel?: string;
+  onRoutePick?: (id: string) => void;
   onHotspot: (hotspot: HotspotProps, point: Point) => void;
 }) {
   const { ready, failed } = useKakao();
+  const frame = {
+    className: routes ? "map routing" : "map",
+    role: routes ? "img" : undefined,
+    "aria-label": routeLabel,
+  };
   if (ready) {
     return (
-      <div className="map" role={route ? "img" : undefined} aria-label={route?.label}>
+      <div {...frame}>
         <KakaoMap
           bounds={bounds}
           layers={layers}
           layer={layer}
-          route={route?.line}
+          routes={routes}
+          onRoutePick={onRoutePick}
           onHotspot={onHotspot}
         />
       </div>
@@ -74,12 +92,14 @@ export function SensoryMap({
   }
   if (!failed) return <div className="map" />;
 
-  const view = route ? routeBounds(route.line) : bounds;
-  const start = route && project(view, route.line.coordinates[0]);
-  const end = route && project(view, route.line.coordinates[route.line.coordinates.length - 1]);
+  const view = routes ? routeBounds(routes) : bounds;
+  const selected = routes?.find((route) => route.selected);
+  const start = selected && project(view, selected.line.coordinates[0]);
+  const end =
+    selected && project(view, selected.line.coordinates[selected.line.coordinates.length - 1]);
 
   return (
-    <div className="map" role={route ? "img" : undefined} aria-label={route?.label}>
+    <div {...frame}>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
         <defs>
           <filter id="heat-blur" filterUnits="userSpaceOnUse" x="-10" y="-10" width="120" height="120">
@@ -95,7 +115,16 @@ export function SensoryMap({
             />
           ))}
         </g>
-        {route && <polyline className="route-line" points={toPoints(view, route.line)} />}
+        {routes
+          ?.toSorted((a, b) => Number(a.selected) - Number(b.selected))
+          .map((route) => (
+            <polyline
+              key={route.id}
+              className={route.selected ? "route-line" : "route-line other"}
+              points={toPoints(view, route.line)}
+              onClick={() => onRoutePick?.(route.id)}
+            />
+          ))}
       </svg>
       {layers?.hotspots.features.map((hotspot) => {
         const { x, y } = project(view, hotspot.geometry.coordinates);
