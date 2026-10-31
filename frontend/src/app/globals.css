@@ -23,6 +23,13 @@
   --level-low: #3dbe8b;
   --level-mid: #e5b53a;
   --level-high: #e27d5f;
+  /* The heatmap covers whole streets, so it takes a step less saturation than the levels.
+     Six-digit hex: lib/heat.ts parses these. */
+  --heat-low: #72b99a;
+  --heat-mid: #d9bb72;
+  --heat-high: #d9907a;
+  /* Diagonal hatch over places with no measurements. */
+  --hatch: #8c9893;
 
   --shadow-sm: 0 1px 2px rgb(16 40 32 / 0.06);
   --shadow-md: 0 4px 12px rgb(16 40 32 / 0.08), 0 1px 3px rgb(16 40 32 / 0.06);
@@ -72,6 +79,10 @@
   --level-low: #4cc79f;
   --level-mid: #f0c35a;
   --level-high: #f08e70;
+  --heat-low: #5aa98a;
+  --heat-mid: #cbac68;
+  --heat-high: #cc8a74;
+  --hatch: #7a8a9a;
 
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
   --shadow-md: 0 4px 12px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.35);
@@ -280,8 +291,11 @@ svg.lucide {
   opacity: 0.75;
 }
 
+/* Grey and inert. A busy button is also disabled but keeps its colour, to show progress. */
 .button[aria-disabled="true"],
-.button[aria-disabled="true"]:hover {
+.button[aria-disabled="true"]:hover,
+.button:disabled:not([aria-busy="true"]),
+.button:disabled:not([aria-busy="true"]):hover {
   cursor: not-allowed;
   border-color: var(--line);
   background: var(--surface-muted);
@@ -854,22 +868,39 @@ svg.lucide {
   font-weight: 700;
 }
 
+/* Low-stimulus: the heat is a tint, so street names and roads stay readable through it.
+   lib/heat.ts paints at full alpha; the overall strength lives here. */
 .heat-canvas {
   position: absolute;
   pointer-events: none;
+  opacity: 0.36;
   transition: opacity 200ms ease-out;
 }
 
-/* Routes are the subject while comparing, so the heat steps back. */
+/* Routes are the subject while comparing, so the heat steps back further. */
 .map.routing .heat-canvas {
-  opacity: 0.55;
+  opacity: 0.2;
 }
 
 .heat-scale {
   width: 64px;
   height: 8px;
   border-radius: 4px;
-  background: linear-gradient(to right, var(--level-low), var(--level-mid), var(--level-high));
+  background: linear-gradient(to right, var(--heat-low), var(--heat-mid), var(--heat-high));
+}
+
+/* Legend sample for "측정 범위 밖", drawn like the map's hatch. */
+.swatch-nodata {
+  width: 16px;
+  height: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--hatch) 0 1px,
+    transparent 1px 4px
+  );
+  opacity: 0.8;
 }
 
 .route-line.other {
@@ -899,7 +930,7 @@ svg.lucide {
 }
 
 .heat {
-  opacity: 0.5;
+  opacity: 0.36;
 }
 
 .heat-line {
@@ -942,6 +973,37 @@ svg.lucide {
   overflow-y: auto;
   border-right: 1px solid var(--line);
   background: var(--surface);
+}
+
+/* A grab strip straddling the panel's border; it shows a line on hover, drag or focus. */
+.panel-resizer {
+  position: relative;
+  z-index: 3;
+  flex: none;
+  width: 8px;
+  margin: 0 -4px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.panel-resizer::after {
+  content: "";
+  position: absolute;
+  inset: 0 3px;
+  border-radius: 1px;
+  background: var(--primary);
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+}
+
+.panel-resizer:hover::after,
+.panel-resizer:active::after,
+.panel-resizer:focus-visible::after {
+  opacity: 1;
+}
+
+.panel-resizer:focus-visible {
+  outline: none;
 }
 
 /* Service name and the settings button over a hairline, on every step. */
@@ -1150,12 +1212,20 @@ svg.lucide {
   max-width: 360px;
 }
 
+/* Legend on the left, the refuge button centred. The side columns share the rest equally,
+   so the button stays centred and the legend never runs under it. bottom clears Kakao's
+   logo and scale bar in the corner. */
 .map-bottom {
-  right: 24px;
-  bottom: 24px;
-  left: 48px;
-  align-items: flex-end;
-  justify-content: space-between;
+  right: 16px;
+  bottom: 36px;
+  left: 16px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: end;
+}
+
+.map-bottom .legend {
+  justify-self: start;
 }
 
 /* Theme toggle, then the data age chip. */
@@ -1307,26 +1377,32 @@ svg.lucide {
   rotate: 45deg;
 }
 
+/* A wide pill: the target for a tired thumb, and the button to find at a glance. */
 .refuge-button {
   display: flex;
-  flex: none;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  width: 96px;
-  height: 96px;
-  border-radius: 50%;
+  gap: 10px;
+  min-width: 240px;
+  min-height: 56px;
+  padding: 0 32px;
+  border-radius: 999px;
   background: var(--primary);
   box-shadow:
     0 8px 24px var(--primary-glow),
     var(--shadow-md);
   color: var(--on-primary);
-  font-size: 13px;
+  font-size: 17px;
   font-weight: 700;
+  white-space: nowrap;
   transition:
     transform 100ms ease-out,
     background-color 150ms ease-out;
+}
+
+.refuge-button svg {
+  width: 22px;
+  height: 22px;
 }
 
 .refuge-button:hover {
@@ -1352,8 +1428,26 @@ svg.lucide {
     min-height: 70dvh;
   }
 
-  .panel-toggle {
+  .panel-toggle,
+  .panel-resizer {
     display: none;
+  }
+
+  /* Legend above, then a full-width refuge button along the bottom for the thumb. */
+  .map-bottom {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .map-bottom .legend {
+    align-self: flex-start;
+  }
+
+  .refuge-button {
+    min-width: 0;
+    width: 100%;
   }
 }
 

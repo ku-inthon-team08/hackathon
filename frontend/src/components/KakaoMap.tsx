@@ -67,7 +67,8 @@ function useHeat(
     if (!target || !node || !layers?.edges.features.length) return;
 
     const points = heatPoints(layers, layer);
-    const ramp = heatRamp(token("--level-low"), token("--level-mid"), token("--level-high"));
+    const ramp = heatRamp(token("--heat-low"), token("--heat-mid"), token("--heat-high"));
+    const hatch = token("--hatch");
     const canvas = document.createElement("canvas");
     canvas.className = "heat-canvas";
 
@@ -109,6 +110,7 @@ function useHeat(
           metersPerPx: (111320 * cosLat) / pxPerLng,
         },
         ramp,
+        hatch,
       );
       anchor = target?.getCenter() ?? null;
       place();

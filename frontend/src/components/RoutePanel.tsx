@@ -90,7 +90,6 @@ function SearchForm({
   onSearch: (from: NamedPlace | null, to: NamedPlace) => void;
 }) {
   const { from, to, error } = plan;
-  const [toError, setToError] = useState<string>();
   // An unreadable location leaves 출발지 empty instead of claiming "현재 위치".
   const fromText = from?.name ?? (error === "no-location" ? "" : "현재 위치");
   const toInput = useRef<HTMLInputElement>(null);
@@ -98,19 +97,22 @@ function SearchForm({
   const id = useId();
   const noLocation = error === "no-location";
 
+  // The button only enables once the new 도착지 renders, so focus it a frame later.
+  function focusSubmit() {
+    requestAnimationFrame(() => submitButton.current?.focus());
+  }
+
   // Carry on to the next empty step, so the whole search works from the keyboard.
   function pickFrom(place: NamedPlace | null) {
     onEdit({ from: place, to });
-    (to ? submitButton : toInput).current?.focus();
+    if (to) focusSubmit();
+    else toInput.current?.focus();
   }
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    if (!to) {
-      setToError("도착지를 검색해서 선택해 주세요.");
-      return;
-    }
-    onSearch(from, to);
+    // The button is disabled without a 도착지, which also blocks Enter from submitting.
+    if (to) onSearch(from, to);
   }
 
   return (
@@ -138,12 +140,9 @@ function SearchForm({
             label="도착지"
             value={to?.name}
             placeholder="도착지 입력"
-            invalid={Boolean(toError)}
-            describedBy={toError ? `${id}-to-error` : undefined}
             onPick={(place) => {
-              setToError(undefined);
               onEdit({ from, to: place });
-              submitButton.current?.focus();
+              focusSubmit();
             }}
           />
           <button
@@ -161,11 +160,6 @@ function SearchForm({
             위치를 확인할 수 없어요. 출발지를 검색해 주세요.
           </p>
         )}
-        {toError && (
-          <p id={`${id}-to-error`} className="error" role="alert">
-            {toError}
-          </p>
-        )}
       </div>
       {error === "failed" && (
         <p className="error" role="alert">
@@ -177,7 +171,8 @@ function SearchForm({
         type="submit"
         className="button primary"
         aria-busy={busy}
-        disabled={busy}
+        disabled={busy || !to}
+        title={to ? undefined : "도착지를 먼저 입력해 주세요"}
       >
         {busy ? "경로 찾는 중…" : "길찾기"}
       </button>
