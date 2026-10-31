@@ -5,7 +5,7 @@ import { drawHeat, heatPoints, heatRamp } from "@/lib/heat";
 import type { Bounds, HotspotProps, MapLayers, Point } from "@/lib/api/types";
 import "@/lib/kakao";
 import { useTheme, type Theme } from "@/lib/theme";
-import type { Layer, MapRoute } from "./MapCanvas";
+import type { Layer, MapPlace, MapRoute } from "./MapCanvas";
 
 const toLatLng = ([lng, lat]: [number, number]) => new kakao.maps.LatLng(lat, lng);
 
@@ -151,6 +151,8 @@ export function KakaoMap({
   routes,
   onRoutePick,
   onHotspot,
+  places,
+  onPlace,
 }: {
   bounds: Bounds;
   layers?: MapLayers;
@@ -158,18 +160,22 @@ export function KakaoMap({
   routes?: MapRoute[];
   onRoutePick?: (id: string) => void;
   onHotspot: (hotspot: HotspotProps, point: Point) => void;
+  places?: MapPlace[];
+  onPlace?: (place: MapPlace) => void;
 }) {
   const element = useRef<HTMLDivElement>(null);
   const map = useKakaoMap(element);
   const picked = useRef(onHotspot);
   const pickedRoute = useRef(onRoutePick);
+  const pickedPlace = useRef(onPlace);
   // Heat and route colours are read from the CSS tokens when drawn, so redraw on a theme flip.
   const [theme] = useTheme();
 
   useEffect(() => {
     picked.current = onHotspot;
     pickedRoute.current = onRoutePick;
-  }, [onHotspot, onRoutePick]);
+    pickedPlace.current = onPlace;
+  }, [onHotspot, onRoutePick, onPlace]);
 
   useHeat(map, element, layers, layer, theme);
 
@@ -180,17 +186,19 @@ export function KakaoMap({
     paths.current = routes;
   }, [routes]);
 
+  // Listed places frame themselves below; when they go away, show the whole area again.
+  const placeKey = places?.map((place) => place.id).join();
   useEffect(() => {
     const frame = new kakao.maps.LatLngBounds();
     if (trip && paths.current) {
       paths.current.forEach((route) => route.line.coordinates.forEach((c) => frame.extend(toLatLng(c))));
       map.current?.setBounds(frame, 48, 48, 48, 48);
-    } else {
+    } else if (!placeKey) {
       frame.extend(new kakao.maps.LatLng(bounds.min_lat, bounds.min_lng));
       frame.extend(new kakao.maps.LatLng(bounds.max_lat, bounds.max_lng));
       map.current?.setBounds(frame);
     }
-  }, [map, bounds, trip]);
+  }, [map, bounds, trip, placeKey]);
 
   useEffect(() => {
     const target = map.current;
@@ -260,6 +268,36 @@ export function KakaoMap({
       pins.forEach((item) => item.setMap(null));
     };
   }, [map, routes, theme]);
+
+  // Shelter markers, framed so every listed place is in view.
+  useEffect(() => {
+    const target = map.current;
+    if (!target || !places?.length) return;
+
+    const frame = new kakao.maps.LatLngBounds();
+    const markers = places.map((place) => {
+      const position = new kakao.maps.LatLng(place.lat, place.lng);
+      frame.extend(position);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "place-pin";
+      button.ariaLabel = `${place.label}. ${place.name}`;
+      button.textContent = place.label;
+      button.addEventListener("click", () => pickedPlace.current?.(place));
+      return new kakao.maps.CustomOverlay({
+        map: target,
+        position,
+        content: button,
+        clickable: true,
+        xAnchor: 0.5,
+        yAnchor: 0.5,
+        zIndex: 4,
+      });
+    });
+    target.setBounds(frame, 80, 80, 80, 80);
+
+    return () => markers.forEach((marker) => marker.setMap(null));
+  }, [map, places]);
 
   return <div ref={element} className="kakao-map" />;
 }

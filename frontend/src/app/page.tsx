@@ -1,7 +1,6 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, Moon, Sun, Trees } from "lucide-react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   Suspense,
@@ -13,16 +12,17 @@ import {
   type CSSProperties,
 } from "react";
 import { FeedbackSheet } from "@/components/FeedbackSheet";
-import { type Layer, type MapRoute, SensoryMap } from "@/components/MapCanvas";
+import { type Layer, type MapPlace, type MapRoute, SensoryMap } from "@/components/MapCanvas";
 import { PlaceSheet, type SheetTarget } from "@/components/PlaceSheet";
 import { RoutePanel, usePlanner } from "@/components/RoutePanel";
 import { SensitivityModal } from "@/components/SensitivityModal";
+import { ShelterPanel } from "@/components/ShelterList";
 import { dataStatus, mapLayers } from "@/lib/api";
 import { LOAD_LABEL, levelOf } from "@/lib/format";
 import { getPosition, MAP_BOUNDS } from "@/lib/location";
 import { useSensitivity } from "@/lib/storage";
 import { useTheme } from "@/lib/theme";
-import type { DataStatus, MapLayers, NamedPlace, Sensitivity } from "@/lib/api/types";
+import type { DataStatus, MapLayers, NamedPlace, Sensitivity, Shelter } from "@/lib/api/types";
 import { useAsync } from "@/hooks/useAsync";
 
 const POLL_MS = 5 * 60 * 1000;
@@ -166,6 +166,9 @@ function Home({
   const [surveyOpen, setSurveyOpen] = useState(false);
   const [target, setTarget] = useState<SheetTarget | null>(null);
   const [arrived, setArrived] = useState(false);
+  // 지금 쉬고 싶어요 opens 쉼터 in the panel; the map then marks only the listed ones.
+  const [refugeOpen, setRefugeOpen] = useState(false);
+  const [shelters, setShelters] = useState<Shelter[]>([]);
 
   // Next keeps visited pages alive, so close any sheet when this page hides.
   useLayoutEffect(
@@ -190,6 +193,24 @@ function Home({
     }, POLL_MS);
     return () => clearInterval(timer);
   }, [refreshLayers, refreshStatus]);
+
+  // Crowded-area markers stay off the map; markers are kept for the shelters being compared.
+  const mapData = useMemo<MapLayers | undefined>(
+    () => layers.data && { ...layers.data, hotspots: { type: "FeatureCollection", features: [] } },
+    [layers.data],
+  );
+  const places = useMemo<MapPlace[] | undefined>(
+    () =>
+      refugeOpen
+        ? shelters.map((s, i) => ({ id: s.id, name: s.name, lat: s.lat, lng: s.lng, label: String(i + 1) }))
+        : undefined,
+    [refugeOpen, shelters],
+  );
+
+  function closeRefuges() {
+    setRefugeOpen(false);
+    setShelters([]);
+  }
 
   const { label, stale } = freshness(status.data);
   const summary = areaSummary(layers.data, layer);
@@ -227,6 +248,7 @@ function Home({
 
   function goTo(destination: NamedPlace) {
     setTarget(null);
+    closeRefuges();
     setPanelOpen(true);
     planner.search(plan.step === "search" ? plan.from : null, destination);
   }
@@ -238,12 +260,22 @@ function Home({
     >
       {panelOpen && (
         <>
-          <RoutePanel
-            id={PANEL_ID}
-            planner={planner}
-            onSettings={() => setSurveyOpen(true)}
-            onArrive={() => setArrived(true)}
-          />
+          {refugeOpen ? (
+            <ShelterPanel
+              id={PANEL_ID}
+              sens={sens}
+              onPick={setTarget}
+              onItems={setShelters}
+              onClose={closeRefuges}
+            />
+          ) : (
+            <RoutePanel
+              id={PANEL_ID}
+              planner={planner}
+              onSettings={() => setSurveyOpen(true)}
+              onArrive={() => setArrived(true)}
+            />
+          )}
           <PanelResizer width={panelWidth} onResize={setPanelWidth} />
         </>
       )}
@@ -251,7 +283,7 @@ function Home({
       <section className="map-area" aria-label="감각 지도">
         <SensoryMap
           bounds={MAP_BOUNDS}
-          layers={layers.data}
+          layers={mapData}
           layer={layer}
           routes={mapRoutes}
           routeLabel={shown && `${plan.to?.name}까지 ${shown.label} 경로`}
@@ -267,6 +299,8 @@ function Home({
               crowd: { label: hotspot.crowd_label, observedAt: hotspot.observed_at },
             })
           }
+          places={places}
+          onPlace={(place) => setTarget({ placeId: place.id, name: place.name, lat: place.lat, lng: place.lng })}
         />
 
         <button
@@ -338,10 +372,19 @@ function Home({
             </ul>
           </div>
           {/* The one thing to reach for when it gets too much, so it sits front and centre. */}
-          <Link className="refuge-button" href="/refuges">
-            <Trees aria-hidden />
-            지금 쉬고 싶어요
-          </Link>
+          {!refugeOpen && (
+            <button
+              type="button"
+              className="refuge-button"
+              onClick={() => {
+                setRefugeOpen(true);
+                setPanelOpen(true);
+              }}
+            >
+              <Trees aria-hidden />
+              지금 쉬고 싶어요
+            </button>
+          )}
         </div>
       </section>
 

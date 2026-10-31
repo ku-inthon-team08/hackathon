@@ -51,7 +51,13 @@ function Evidence({ placeId, expanded }: { placeId: string; expanded: boolean })
           <div>
             <dt>운영</dt>
             <dd>
-              {hours.open}~{hours.close} · {hours.closed}
+              {[
+                hours.weekday && `평일 ${hours.weekday}`,
+                hours.weekend && `주말 ${hours.weekend}`,
+                hours.closed && `휴관 ${hours.closed}`,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             </dd>
           </div>
         )}

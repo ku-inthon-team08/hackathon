@@ -17,6 +17,15 @@ export interface MapRoute {
   selected: boolean;
 }
 
+// A numbered marker, e.g. a shelter from the list beside the map.
+export interface MapPlace {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  label: string;
+}
+
 function project(b: Bounds, [lng, lat]: [number, number]) {
   return {
     x: ((lng - b.min_lng) / (b.max_lng - b.min_lng)) * 100,
@@ -60,6 +69,8 @@ export function SensoryMap({
   routeLabel,
   onRoutePick,
   onHotspot,
+  places,
+  onPlace,
 }: {
   bounds: Bounds;
   layers?: MapLayers;
@@ -69,6 +80,9 @@ export function SensoryMap({
   routeLabel?: string;
   onRoutePick?: (id: string) => void;
   onHotspot: (hotspot: HotspotProps, point: Point) => void;
+  // When set, these are the only markers besides the route pins.
+  places?: MapPlace[];
+  onPlace?: (place: MapPlace) => void;
 }) {
   const { ready, failed } = useKakao();
   const frame = {
@@ -86,6 +100,8 @@ export function SensoryMap({
           routes={routes}
           onRoutePick={onRoutePick}
           onHotspot={onHotspot}
+          places={places}
+          onPlace={onPlace}
         />
       </div>
     );
@@ -139,6 +155,21 @@ export function SensoryMap({
             onClick={() => onHotspot(hotspot.properties, hotspot.geometry)}
           >
             <span>{crowd_level}</span>
+          </button>
+        );
+      })}
+      {places?.map((place) => {
+        const { x, y } = project(view, [place.lng, place.lat]);
+        return (
+          <button
+            key={place.id}
+            type="button"
+            className="place-pin"
+            style={{ left: `${x}%`, top: `${y}%` }}
+            aria-label={`${place.label}. ${place.name}`}
+            onClick={() => onPlace?.(place)}
+          >
+            {place.label}
           </button>
         );
       })}

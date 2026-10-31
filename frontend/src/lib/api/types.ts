@@ -1,6 +1,6 @@
 // Copied from docs/api.md. Keep in sync with the BE.
 export type LoadLevel = "low" | "mid" | "high";
-export type PlaceKind = "library" | "park";
+export type PlaceKind = "library" | "park" | "center";
 export type LineString = { type: "LineString"; coordinates: [number, number][] };
 export type Point = { type: "Point"; coordinates: [number, number] };
 export type FeatureCollection<G, P> = {
@@ -11,14 +11,19 @@ export type FeatureCollection<G, P> = {
 export interface Shelter {
   id: string;
   kind: PlaceKind;
+  // 공공도서관 · 작은도서관 · 주민센터 · 공원
+  category: string;
   name: string;
   lat: number;
   lng: number;
   distance_m: number;
   walk_min: number;
-  is_open: boolean;
+  // null: no opening hours in the data ("운영시간 확인 필요")
+  is_open: boolean | null;
+  indoor: boolean;
   load: number;
   load_level: LoadLevel;
+  score: number;
 }
 export interface NearbyShelters {
   mock: boolean;
@@ -32,7 +37,7 @@ export interface PlaceDetail {
     kind: PlaceKind;
     name: string;
     address: string | null;
-    open_info: Record<string, string> | null;
+    open_info: { weekday: string | null; weekend: string | null; closed: string | null } | null;
   };
   evidence: {
     noise: {

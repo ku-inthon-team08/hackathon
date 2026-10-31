@@ -57,13 +57,15 @@ const topOfHour = () => {
   return d.toISOString();
 };
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60000).toISOString();
+// Same order as the BE: open, unknown hours, closed.
+const rank = (open: boolean | null) => (open === true ? 0 : open === null ? 1 : 2);
 
 const SHELTERS = [
-  [1, "library", "샘플 구립도서관", 240, 0.1, 0.2, 0.1, true],
-  [2, "park", "샘플 근린공원", 380, 0.3, 0.1, 0.25, true],
-  [3, "library", "샘플 작은도서관", 520, 0.15, 0.3, 0.05, false],
-  [4, "park", "샘플 어린이공원", 640, 0.45, 0.15, 0.4, true],
-  [5, "library", "샘플 시립도서관", 730, 0.05, 0.1, 0.05, true],
+  [1, "library", "공공도서관", "샘플 구립도서관", 240, 0.1, 0.2, 0.1, true],
+  [2, "park", "공원", "샘플 근린공원", 380, 0.3, 0.1, 0.25, true],
+  [3, "library", "작은도서관", "샘플 작은도서관", 520, 0.15, 0.3, 0.05, null],
+  [4, "center", "주민센터", "샘플 주민센터", 640, 0.15, 0.3, 0.3, false],
+  [5, "library", "공공도서관", "샘플 시립도서관", 730, 0.05, 0.1, 0.05, true],
 ] as const;
 
 export function nearbyShelters(
@@ -74,13 +76,15 @@ export function nearbyShelters(
   return respond(
     () => ({
       mock: true,
-      items: SHELTERS.filter((s) => s[3] <= minutes * WALK_MPM)
-        .map(([n, kind, name, dist, noise, light, crowd, is_open]) => {
+      items: SHELTERS.filter((s) => s[4] <= minutes * WALK_MPM)
+        .map(([n, kind, category, name, dist, noise, light, crowd, is_open]) => {
           const bearing = ((n * 72) / 180) * Math.PI;
           const load = sensoryLoad(noise, light, crowd, sens);
+          const walkMin = Math.ceil(dist / WALK_MPM);
           return {
             id: `mock-${n}`,
             kind,
+            category,
             name,
             lat: round(lat + (dist * Math.cos(bearing)) / 111320, 6),
             lng: round(
@@ -88,13 +92,15 @@ export function nearbyShelters(
               6,
             ),
             distance_m: dist,
-            walk_min: Math.ceil(dist / WALK_MPM),
+            walk_min: walkMin,
             is_open,
+            indoor: kind !== "park",
             load: round(load),
             load_level: loadLevel(load),
+            score: round(0.6 * (1 - load) + 0.3 * (1 - Math.min(walkMin, 10) / 10) + 0.05),
           };
         })
-        .sort((a, b) => a.load - b.load || a.distance_m - b.distance_m),
+        .sort((a, b) => rank(a.is_open) - rank(b.is_open) || b.score - a.score),
     }),
     () => ({ mock: true, items: [] }),
   );
@@ -108,7 +114,7 @@ export function placeDetail(placeId: string): Promise<PlaceDetail> {
       kind: /[02468]$/.test(placeId) ? "park" : "library",
       name: `샘플 장소 ${placeId}`,
       address: "서울특별시 (샘플 주소)",
-      open_info: { open: "09:00", close: "22:00", closed: "매주 월요일" },
+      open_info: { weekday: "09:00~22:00", weekend: "09:00~20:00", closed: "매주 월요일" },
     },
     evidence: {
       noise: {
