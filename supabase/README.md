@@ -41,7 +41,7 @@ npx supabase db push
 
 ## 권한
 
-- 모든 테이블에 RLS가 켜져 있습니다. anon 직접 읽기는 `hotspots`, `places`, `congestion_obs`, `edge_exposure`만 허용합니다.
+- 모든 테이블에 RLS가 켜져 있습니다. anon 직접 읽기는 `hotspots`, `places`, `congestion_obs`만 허용합니다. `edge_exposure`는 뷰(`security_invoker`)라 앱이 직접 읽으면 0행이고, RPC로만 읽습니다.
 - 나머지 테이블을 읽는 실제 RPC는 `security definer`로 만듭니다(`data_status()` 참고). 쓰기는 `service_role` 키를 쓰는 수집기·스크립트만 합니다.
 - `fetch_log`는 오류 원문에 서울 API 키가 섞일 수 있어 anon 직접 읽기를 차단합니다. 앱에는 `data_status()`가 오류 원문 없이 요약만 돌려줍니다.
 - 서울 API 키는 Edge Function 시크릿(`npx supabase secrets set SEOUL_OPENAPI_KEY=...`)에만 둡니다.
@@ -55,7 +55,15 @@ erDiagram
   hotspots ||--o{ congestion_obs : area_cd
   sensors ||--o{ sensor_obs : sensor_id
   road_nodes ||--o{ road_edges : "source, target"
-  road_edges ||--o| edge_exposure : edge_id
+  road_edges ||--|| edge_cell : edge_id
+  grid_cells ||--o{ edge_cell : cell_id
+  grid_cells ||--o| cell_exposure : cell_id
+  grid_cells ||--o{ cell_sensor_weight : cell_id
+  sensors ||--o{ cell_sensor_weight : sensor_id
+  road_edges ||--o| edge_road_prior : edge_id
+  road_edges ||--o{ edge_area : edge_id
+  hotspots ||--o{ edge_area : area_cd
+  hotspots ||--o| area_crowd : area_cd
   route_requests ||--o{ route_candidates : request_id
   route_requests |o--o| route_candidates : selected_id
 
@@ -104,13 +112,44 @@ erDiagram
     boolean is_walkable
     geometry geom "LineString"
   }
-  edge_exposure {
+  grid_cells {
+    bigint cell_id PK "250m 칸"
+    geometry geom "Polygon 5179"
+    geometry center "Point 5179"
+  }
+  edge_cell {
     bigint edge_id PK, FK
+    bigint cell_id FK
+  }
+  cell_sensor_weight {
+    bigint cell_id PK, FK
+    text sensor_id PK, FK
+    text kind
+    real d
+    float8 w
+  }
+  cell_exposure {
+    bigint cell_id PK, FK
     real noise_n "0~1"
     real light_n "0~1"
-    real crowd_n "0~1"
-    text confidence
+    real flow_n "0~1"
+    real nearest_m
+    real nearest_age_min
     timestamptz computed_at
+  }
+  edge_road_prior {
+    bigint edge_id PK, FK
+    real noise
+    real light
+    real crowd
+  }
+  edge_area {
+    bigint edge_id PK, FK
+    text area_cd PK, FK
+  }
+  area_crowd {
+    text area_cd PK, FK
+    real crowd_n "0~1"
   }
   route_requests {
     uuid id PK
@@ -155,6 +194,14 @@ erDiagram
 
 `latest_congestion`은 `congestion_obs`에서 장소별 가장 최근 행만 보여주는 뷰입니다.
 
+### 감각 노출값 (`edge_exposure` 뷰)
+
+센서는 수백 m 간격이라 센서 값은 도로 구간마다가 아니라 250m 칸마다 계산하고, 도로 종류와 혼잡 장소는 구간마다 섞습니다.
+
+- 10분마다 pg_cron이 `refresh_edge_exposure()`를 부릅니다. 칸별 센서 IDW(`cell_exposure`)와 혼잡 장소 인파(`area_crowd`)만 다시 계산합니다(마포 444칸, 약 0.6초).
+- `edge_exposure`는 테이블이 아니라 뷰입니다. 읽을 때 "구간이 속한 칸의 값 + 도로 종류 기본값(`edge_road_prior`) + 혼잡 장소(`edge_area`)"를 섞습니다. 컬럼은 예전 테이블과 같아서 `quiet_routes`·`map_layers`·`place_exposure`는 그대로 읽습니다.
+- 도로망·센서·혼잡 장소를 새로 넣거나 바꾸면 `select public.refresh_edge_road_prior(); select public.rebuild_edge_weights();`를 한 번 실행합니다. 칸·구간 연결·센서 가중치·혼잡 장소 영역을 다시 만듭니다.
+
 ## 남은 일
 
 - [x] 확장 켜기: `postgis`, `pgrouting`, `pg_cron`, `pg_net` (켜져 있음)
@@ -162,5 +209,5 @@ erDiagram
 - [ ] 고정 데이터 적재: `hotspots`, `sensors`, `places` (도로망은 적재 완료: 마포, 노드 12,485 · 구간 17,076)
 - [ ] Edge Function 수집기: `congestion_obs`, `sensor_obs`에 upsert하고 `fetch_log`에 기록
 - [ ] 정할 것: 혼잡도 예측(`best_times`용)을 저장할 테이블, 쉼터 운영시간 컬럼, `edge_exposure.confidence` 값 체계
-- [ ] IDW 보간으로 `edge_exposure` 계산
+- [x] IDW 보간으로 `edge_exposure` 계산 (250m 격자 칸 기준, `20261031160000_grid_exposure.sql`)
 - [ ] RPC 본문을 실제 로직으로 교체(`TODO(BE)` 주석): `nearby_shelters` → `place_detail` → `map_layers` → `best_times` → `quiet_routes`
