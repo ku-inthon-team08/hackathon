@@ -74,7 +74,9 @@ function Home({ sens }: { sens: Sensitivity }) {
   const { label, stale } = freshness(status.data);
   const summary = areaSummary(layers.data, layer);
   const layerName = LAYERS.find((l) => l.value === layer)?.label;
-  const isEmpty = layers.data && layers.data.edges.features.length === 0;
+  const hasLayers = Boolean(
+    layers.data?.edges.features.length || layers.data?.hotspots.features.length,
+  );
 
   return (
     <main className="home">
@@ -97,7 +99,6 @@ function Home({ sens }: { sens: Sensitivity }) {
         <div className="chip-row">
           <span className="chip" role="status">
             {label}
-            {status.data?.mock && " · 샘플"}
           </span>
           <button
             type="button"
@@ -109,20 +110,22 @@ function Home({ sens }: { sens: Sensitivity }) {
           </button>
         </div>
         {stale && <p className="banner">최신 데이터를 받지 못해 예전 값을 보여주고 있어요.</p>}
-        <fieldset className="segments">
-          <legend className="visually-hidden">지도 레이어</legend>
-          {LAYERS.map((item) => (
-            <label key={item.value}>
-              <input
-                type="radio"
-                name="layer"
-                checked={layer === item.value}
-                onChange={() => setLayer(item.value)}
-              />
-              <span>{item.label}</span>
-            </label>
-          ))}
-        </fieldset>
+        {hasLayers && (
+          <fieldset className="segments">
+            <legend className="visually-hidden">지도 레이어</legend>
+            {LAYERS.map((item) => (
+              <label key={item.value}>
+                <input
+                  type="radio"
+                  name="layer"
+                  checked={layer === item.value}
+                  onChange={() => setLayer(item.value)}
+                />
+                <span>{item.label}</span>
+              </label>
+            ))}
+          </fieldset>
+        )}
         {Boolean(layers.error) && (
           <p className="banner">
             지금은 이 정보를 볼 수 없어요.
@@ -131,7 +134,6 @@ function Home({ sens }: { sens: Sensitivity }) {
             </button>
           </p>
         )}
-        {isEmpty && !layers.error && <p className="banner">지금은 이 정보를 볼 수 없어요.</p>}
         {layers.loading && !layers.data && (
           <p className="banner" role="status">
             지도 정보를 불러오는 중…
@@ -140,25 +142,27 @@ function Home({ sens }: { sens: Sensitivity }) {
       </div>
 
       <div className="home-bottom">
-        <div className="legend">
-          <p role="status">
-            {summary ? `이 지역 ${layerName}: ${summary}` : `${layerName} 정보 없음`}
-          </p>
-          <ul>
-            <li>
-              <i className="swatch load-low" /> 낮음
-            </li>
-            <li>
-              <i className="swatch load-mid" /> 보통
-            </li>
-            <li>
-              <i className="swatch load-high" /> 높음
-            </li>
-            <li>
-              <i className="swatch-hotspot" /> 혼잡 1~4
-            </li>
-          </ul>
-        </div>
+        {hasLayers && (
+          <div className="legend">
+            <p role="status">
+              {summary ? `이 지역 ${layerName}: ${summary}` : `${layerName} 정보 없음`}
+            </p>
+            <ul>
+              <li>
+                <i className="swatch load-low" /> 낮음
+              </li>
+              <li>
+                <i className="swatch load-mid" /> 보통
+              </li>
+              <li>
+                <i className="swatch load-high" /> 높음
+              </li>
+              <li>
+                <i className="swatch-hotspot" /> 혼잡 1~4
+              </li>
+            </ul>
+          </div>
+        )}
         <div className="home-actions">
           <Link className="button float" href="/route">
             <RouteIcon aria-hidden />길 찾기

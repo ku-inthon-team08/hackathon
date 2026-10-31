@@ -1,6 +1,11 @@
-// Grey stand-ins that draw the real GeoJSON. Replace with Kakao Map once a key exists.
+"use client";
+
+// Kakao Map when NEXT_PUBLIC_KAKAO_MAP_KEY works, otherwise a plain drawing of the same data.
+import { useAsync } from "@/hooks/useAsync";
 import { levelOf } from "@/lib/format";
+import { KAKAO_KEY, loadKakao } from "@/lib/kakao";
 import type { Bounds, EdgeProps, HotspotProps, LineString, MapLayers, Point } from "@/lib/api/types";
+import { KakaoHomeMap, KakaoRouteMap } from "./KakaoMap";
 
 export type Layer = "load" | "noise_n" | "light_n" | "crowd_n";
 
@@ -20,6 +25,11 @@ function toPoints(b: Bounds, line: LineString) {
     .join(" ");
 }
 
+function useKakao() {
+  const { data, error } = useAsync(loadKakao);
+  return { ready: Boolean(data), failed: !KAKAO_KEY || Boolean(error) };
+}
+
 export function HomeMap({
   bounds,
   layers,
@@ -31,6 +41,16 @@ export function HomeMap({
   layer: Layer;
   onHotspot: (hotspot: HotspotProps, point: Point) => void;
 }) {
+  const { ready, failed } = useKakao();
+  if (ready) {
+    return (
+      <div className="map">
+        <KakaoHomeMap bounds={bounds} layers={layers} layer={layer} onHotspot={onHotspot} />
+      </div>
+    );
+  }
+  if (!failed) return <div className="map" />;
+
   const level = (props: EdgeProps) => levelOf(props[layer]);
   return (
     <div className="map">
@@ -64,6 +84,16 @@ export function HomeMap({
 }
 
 export function RouteMap({ line, label }: { line: LineString; label: string }) {
+  const { ready, failed } = useKakao();
+  if (ready) {
+    return (
+      <div className="map route-map" role="img" aria-label={label}>
+        <KakaoRouteMap line={line} />
+      </div>
+    );
+  }
+  if (!failed) return <div className="map route-map" role="img" aria-label={label} />;
+
   const lngs = line.coordinates.map((c) => c[0]);
   const lats = line.coordinates.map((c) => c[1]);
   const pad = Math.max(Math.max(...lngs) - Math.min(...lngs), Math.max(...lats) - Math.min(...lats)) * 0.2;

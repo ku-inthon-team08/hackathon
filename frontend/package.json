@@ -20,6 +20,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
+    "kakao.maps.d.ts": "^0.1.40",
     "typescript": "^5"
   }
 }

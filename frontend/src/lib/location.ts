@@ -1,6 +1,6 @@
 import type { Bounds, LatLng } from "./api/types";
 
-// Anam, the BE's sample coordinates. The rough map stays here until Kakao Map is in.
+// Anam, the sample area. The map stays here because the mock data does not follow panning.
 export const MAP_BOUNDS: Bounds = {
   min_lat: 37.578,
   min_lng: 127.02,

@@ -1,18 +1,29 @@
-/* Rough UI stage: grey wireframe. Neumorphism, final colour and type arrive in stage 3,
-   so everything visual goes through these tokens and the classes below. */
+/* Neumorphism: every surface shares --bg. Raised and inset shadows carry the depth,
+   but borders, fills, icons and labels carry the meaning, because soft shadows alone
+   are too faint to mark a control or a state. */
 :root {
-  --bg: #f3f3f1;
-  --surface: #ffffff;
-  --map: #e4e4e1;
-  --line: #8a8a86;
-  --text: #2b2b2a;
-  --text-muted: #5c5c59;
-  --primary: #2b2b2a;
-  --on-primary: #ffffff;
-  --error: #8f2d20;
-  --focus: #2b2b2a;
+  --bg: #e6eef1;
+  --shadow-light: #ffffff;
+  --shadow-dark: #b8c7cd;
+  --accent: #00b8c8;
+  --on-accent: #22333a;
+  --text: #2e3e44;
+  --text-muted: #55686e;
+  --edge: #6f8389;
+  --edge-soft: #cfdbe0;
+  --error: #9a382c;
+  --focus: #00707a;
 
-  --radius: 12px;
+  --level-low: #3f8f85;
+  --level-mid: #a88524;
+  --level-high: #b0604f;
+
+  --raised: -6px -6px 12px var(--shadow-light), 6px 6px 12px var(--shadow-dark);
+  --raised-small: -3px -3px 6px var(--shadow-light), 3px 3px 6px var(--shadow-dark);
+  --inset: inset -3px -3px 6px var(--shadow-light), inset 3px 3px 6px var(--shadow-dark);
+
+  --radius: 16px;
+  --radius-small: 12px;
   --gutter: 16px;
   --tap: 48px;
   --column: 430px;
@@ -39,7 +50,7 @@ body {
   line-height: 1.5;
   word-break: keep-all;
   overflow-wrap: anywhere;
-  background: var(--map);
+  background: var(--bg);
 }
 
 h1,
@@ -94,6 +105,11 @@ svg {
   outline-offset: 2px;
 }
 
+::selection {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -103,8 +119,10 @@ svg {
   white-space: nowrap;
 }
 
+/* Soft floor shadow, as in the pitch deck. */
 .mascot {
   flex: none;
+  filter: drop-shadow(0 6px 5px rgb(46 62 68 / 0.22));
 }
 
 /* Layout */
@@ -127,13 +145,13 @@ svg {
 }
 
 .page.with-action {
-  padding-bottom: calc(104px + env(safe-area-inset-bottom));
+  padding-bottom: calc(112px + env(safe-area-inset-bottom));
 }
 
 .stack {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .stack-large {
@@ -165,7 +183,16 @@ svg {
   color: var(--text);
 }
 
-/* Controls */
+/* Controls: pressed always means raised to inset. */
+.button,
+.icon-button.float,
+.choice,
+.row {
+  background: var(--bg);
+  box-shadow: var(--raised);
+  transition: box-shadow 150ms ease-out;
+}
+
 .button {
   display: inline-flex;
   align-items: center;
@@ -174,38 +201,41 @@ svg {
   width: 100%;
   min-height: var(--tap);
   padding: 10px 16px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--edge);
   border-radius: var(--radius);
-  background: var(--surface);
   font-weight: 600;
   cursor: pointer;
-  transition: transform 100ms ease-out;
 }
 
 .button.primary {
-  border-color: var(--primary);
-  background: var(--primary);
-  color: var(--on-primary);
+  border-color: var(--focus);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
 }
 
 .button:active,
-.refuge-button:active {
-  transform: scale(0.97);
+.icon-button.float:active,
+.choice:active,
+.row:active {
+  box-shadow: var(--inset);
 }
 
 .button[aria-busy="true"] {
   cursor: progress;
-  opacity: 0.75;
+  box-shadow: var(--inset);
 }
 
 .button[aria-disabled="true"] {
-  cursor: not-allowed;
-  color: var(--text-muted);
   border-style: dashed;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: not-allowed;
 }
 
 .button[aria-pressed="true"] {
-  border-width: 2px;
+  border: 2px solid var(--focus);
+  box-shadow: var(--inset);
 }
 
 .icon-button {
@@ -215,15 +245,24 @@ svg {
   height: var(--tap);
   flex: none;
   border: 0;
-  border-radius: var(--radius);
+  border-radius: 50%;
   background: none;
   cursor: pointer;
 }
 
-.icon-button.float,
-.button.float {
-  border: 1px solid var(--line);
-  background: var(--surface);
+.icon-button.float {
+  border: 1px solid var(--edge);
+}
+
+.top-bar .icon-button,
+.sheet-header .icon-button {
+  background: var(--bg);
+  box-shadow: var(--raised-small);
+}
+
+.top-bar .icon-button:active,
+.sheet-header .icon-button:active {
+  box-shadow: var(--inset);
 }
 
 .text-button {
@@ -249,7 +288,7 @@ svg {
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .field label,
@@ -257,13 +296,22 @@ svg {
   font-weight: 600;
 }
 
+.field input,
+.chosen {
+  min-height: var(--tap);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  background: var(--bg);
+  box-shadow: var(--inset);
+}
+
 .field input {
   width: 100%;
-  min-height: var(--tap);
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
+  padding: 10px 14px;
+}
+
+.field input::placeholder {
+  color: var(--text-muted);
 }
 
 .field input[aria-invalid="true"] {
@@ -275,11 +323,7 @@ svg {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: var(--tap);
-  padding: 2px 8px 2px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
+  padding: 2px 8px 2px 14px;
 }
 
 .hint {
@@ -296,9 +340,9 @@ svg {
 .results button {
   width: 100%;
   min-height: var(--tap);
-  padding: 10px 12px;
+  padding: 10px 14px;
   border: 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--edge-soft);
   background: none;
   text-align: start;
   cursor: pointer;
@@ -307,7 +351,7 @@ svg {
 .choices {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .choices legend {
@@ -320,16 +364,16 @@ svg {
   align-items: center;
   gap: 12px;
   min-height: var(--tap);
-  padding: 10px 12px;
-  border: 1px solid var(--line);
+  padding: 10px 14px;
+  border: 1px solid var(--edge-soft);
   border-radius: var(--radius);
-  background: var(--surface);
   cursor: pointer;
 }
 
 .choice:has(input:checked) {
-  border-width: 2px;
-  padding: 9px 11px;
+  padding: 9px 13px;
+  border: 2px solid var(--focus);
+  box-shadow: var(--inset);
   font-weight: 600;
 }
 
@@ -341,14 +385,18 @@ svg {
   width: 20px;
   height: 20px;
   margin: 0;
-  accent-color: var(--primary);
+  accent-color: var(--focus);
+}
+
+.choice svg {
+  color: var(--focus);
 }
 
 /* Lists */
 .rows {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 16px;
 }
 
 .row {
@@ -357,17 +405,17 @@ svg {
   align-items: flex-start;
   gap: 4px;
   width: 100%;
-  padding: 12px;
-  border: 1px solid var(--line);
+  padding: 14px 16px;
+  border: 1px solid var(--edge-soft);
   border-radius: var(--radius);
-  background: var(--surface);
   text-align: start;
   cursor: pointer;
 }
 
 .row[aria-pressed="true"] {
-  border-width: 2px;
-  padding: 11px;
+  padding: 13px 15px;
+  border: 2px solid var(--focus);
+  box-shadow: var(--inset);
 }
 
 .row-title {
@@ -380,6 +428,7 @@ svg {
 .row-title svg {
   width: 18px;
   height: 18px;
+  color: var(--focus);
 }
 
 .row-meta {
@@ -397,10 +446,10 @@ svg {
 .tag {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 1px 8px;
-  border: 1px solid var(--line);
+  gap: 6px;
+  padding: 2px 10px;
   border-radius: 999px;
+  box-shadow: var(--inset);
   font-size: 14px;
   white-space: nowrap;
 }
@@ -410,16 +459,35 @@ svg {
   height: 14px;
 }
 
+.tag[class*="load-"]::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--level);
+}
+
+.load-low {
+  --level: var(--level-low);
+}
+
+.load-mid {
+  --level: var(--level-mid);
+}
+
+.load-high {
+  --level: var(--level-high);
+}
+
 .tag.load-high {
-  border-width: 2px;
   font-weight: 700;
 }
 
 .skeleton-row {
   height: 96px;
-  margin-bottom: 8px;
+  margin-bottom: 16px;
   border-radius: var(--radius);
-  background: var(--map);
+  box-shadow: var(--inset);
 }
 
 .notice {
@@ -448,7 +516,7 @@ svg {
   display: flex;
   gap: 16px;
   padding: 8px 0;
-  border-bottom: 1px solid var(--map);
+  border-bottom: 1px solid var(--edge-soft);
 }
 
 .facts dt {
@@ -466,7 +534,7 @@ svg {
 .times th,
 .times td {
   padding: 8px 4px;
-  border-bottom: 1px solid var(--map);
+  border-bottom: 1px solid var(--edge-soft);
   font-weight: 400;
   text-align: start;
 }
@@ -500,9 +568,9 @@ svg {
   bottom: 0;
   max-width: var(--column);
   margin-inline: auto;
-  padding: 12px var(--gutter) calc(12px + env(safe-area-inset-bottom));
+  padding: 14px var(--gutter) calc(14px + env(safe-area-inset-bottom));
   background: var(--bg);
-  border-top: 1px solid var(--line);
+  box-shadow: 0 -6px 12px var(--shadow-dark);
 }
 
 /* Onboarding */
@@ -543,7 +611,7 @@ svg {
 .welcome-actions {
   display: grid;
   grid-template-columns: 1fr 2fr;
-  gap: 8px;
+  gap: 12px;
   margin-top: auto;
 }
 
@@ -552,7 +620,7 @@ svg {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: var(--map);
+  background: var(--edge-soft);
 }
 
 .map svg {
@@ -562,15 +630,26 @@ svg {
   height: 100%;
 }
 
+.kakao-map {
+  position: absolute;
+  inset: 0;
+}
+
+/* Kakao has no muted style, so calm the tiles without touching the lines above them. */
+.kakao-map img {
+  filter: grayscale(0.6) contrast(0.9) brightness(1.06);
+}
+
 .edge {
   fill: none;
-  stroke: var(--line);
+  stroke: var(--level);
+  stroke-opacity: 0.6;
   vector-effect: non-scaling-stroke;
 }
 
 .edge.load-low {
-  stroke-width: 2;
-  stroke-dasharray: 2 6;
+  stroke-width: 3;
+  stroke-dasharray: 4 6;
 }
 
 .edge.load-mid {
@@ -578,12 +657,11 @@ svg {
 }
 
 .edge.load-high {
-  stroke: var(--text);
-  stroke-width: 10;
+  stroke-width: 8;
 }
 
 .hotspot {
-  position: absolute;
+  position: relative;
   display: grid;
   place-items: center;
   width: var(--tap);
@@ -591,8 +669,12 @@ svg {
   padding: 0;
   border: 0;
   background: none;
-  transform: translate(-50%, -50%);
   cursor: pointer;
+}
+
+.map > .hotspot {
+  position: absolute;
+  transform: translate(-50%, -50%);
 }
 
 /* A diamond, so hotspots never read as the 3-step load scale. */
@@ -602,7 +684,9 @@ svg {
   width: 28px;
   height: 28px;
   border: 2px solid var(--text);
-  background: var(--surface);
+  border-radius: 6px;
+  background: var(--bg);
+  box-shadow: 2px -2px 5px rgb(46 62 68 / 0.3);
   rotate: 45deg;
 }
 
@@ -620,20 +704,25 @@ svg {
 
 .route-line {
   fill: none;
-  stroke: var(--text);
-  stroke-width: 5;
+  stroke: var(--focus);
+  stroke-width: 6;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
 }
 
 .pin {
-  position: absolute;
-  padding: 2px 8px;
-  border-radius: var(--radius);
-  background: var(--primary);
-  color: var(--on-primary);
+  padding: 2px 10px;
+  border: 1px solid var(--focus);
+  border-radius: var(--radius-small);
+  background: var(--accent);
+  color: var(--on-accent);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.map > .pin {
+  position: absolute;
   transform: translate(-50%, -50%);
 }
 
@@ -644,12 +733,12 @@ svg {
   justify-content: space-between;
   height: 100dvh;
   overflow: hidden;
-  background: var(--map);
 }
 
 .home-top,
 .home-bottom {
   position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -666,23 +755,34 @@ svg {
   padding-bottom: calc(16px + env(safe-area-inset-bottom));
 }
 
+.chip-row,
+.home-actions {
+  pointer-events: none;
+}
+
+.chip-row > *,
+.home-actions > * {
+  pointer-events: auto;
+}
+
 .chip-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  pointer-events: none;
 }
 
-.chip-row > * {
-  pointer-events: auto;
+.chip,
+.banner,
+.legend {
+  border: 1px solid var(--edge-soft);
+  background: var(--bg);
+  box-shadow: var(--raised-small);
 }
 
 .chip {
-  padding: 4px 12px;
-  border: 1px solid var(--line);
+  padding: 6px 14px;
   border-radius: 999px;
-  background: var(--surface);
   font-size: 15px;
 }
 
@@ -692,10 +792,8 @@ svg {
   align-items: center;
   justify-content: space-between;
   gap: 4px 12px;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
+  padding: 8px 14px;
+  border-radius: var(--radius-small);
   font-size: 15px;
 }
 
@@ -703,10 +801,11 @@ svg {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 4px;
-  padding: 4px;
-  border: 1px solid var(--line);
+  padding: 6px;
+  border: 1px solid var(--edge-soft);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--bg);
+  box-shadow: var(--inset);
 }
 
 .segments label {
@@ -723,13 +822,15 @@ svg {
   display: grid;
   place-items: center;
   min-height: 40px;
-  border-radius: 8px;
+  border-radius: var(--radius-small);
+  transition: box-shadow 150ms ease-out;
 }
 
 .segments input:checked + span {
-  background: var(--primary);
-  color: var(--on-primary);
-  font-weight: 600;
+  background: var(--accent);
+  box-shadow: var(--raised-small);
+  color: var(--on-accent);
+  font-weight: 700;
 }
 
 .segments input:focus-visible + span {
@@ -739,10 +840,8 @@ svg {
 
 .legend {
   align-self: flex-start;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
+  padding: 8px 14px;
+  border-radius: var(--radius-small);
   font-size: 14px;
 }
 
@@ -765,15 +864,15 @@ svg {
 
 .swatch {
   width: 20px;
-  border-top: 2px dotted var(--line);
+  border-top: 3px dashed var(--level);
 }
 
 .swatch.load-mid {
-  border-top: 4px solid var(--line);
+  border-top: 5px solid var(--level);
 }
 
 .swatch.load-high {
-  border-top: 8px solid var(--text);
+  border-top: 8px solid var(--level);
 }
 
 .swatch-hotspot {
@@ -793,6 +892,14 @@ svg {
 .home-actions .button {
   width: auto;
   justify-self: start;
+  padding-inline: 12px;
+  white-space: nowrap;
+}
+
+@media (max-width: 359px) {
+  .home-actions .button svg {
+    display: none;
+  }
 }
 
 .refuge-button {
@@ -804,11 +911,17 @@ svg {
   gap: 2px;
   width: 104px;
   height: 104px;
+  border: 1px solid var(--focus);
   border-radius: 50%;
-  background: var(--primary);
-  color: var(--on-primary);
+  background: var(--accent);
+  box-shadow: var(--raised);
+  color: var(--on-accent);
   font-weight: 700;
-  transition: transform 100ms ease-out;
+  transition: box-shadow 150ms ease-out;
+}
+
+.refuge-button:active {
+  box-shadow: inset -5px -5px 10px rgb(255 255 255 / 0.4), inset 5px 5px 10px rgb(0 80 90 / 0.4);
 }
 
 /* Navigate */
@@ -837,7 +950,7 @@ svg {
   flex: 1;
   height: auto;
   border-radius: 0;
-  margin-bottom: calc(74px + env(safe-area-inset-bottom));
+  margin-bottom: calc(76px + env(safe-area-inset-bottom));
 }
 
 /* Sheets */
@@ -848,8 +961,8 @@ svg {
   margin: auto auto 0;
   padding: 0;
   border: 0;
-  border-radius: 16px 16px 0 0;
-  background: var(--surface);
+  border-radius: 24px 24px 0 0;
+  background: var(--bg);
   color: var(--text);
 }
 
@@ -859,14 +972,14 @@ svg {
 }
 
 .sheet::backdrop {
-  background: rgb(0 0 0 / 0.4);
+  background: rgb(46 62 68 / 0.35);
 }
 
 .sheet-body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 8px var(--gutter) calc(16px + env(safe-area-inset-bottom));
+  gap: 16px;
+  padding: 12px var(--gutter) calc(20px + env(safe-area-inset-bottom));
 }
 
 .sheet-header {
@@ -882,10 +995,6 @@ svg {
 @media (min-width: 768px) {
   :root {
     --column: 640px;
-  }
-
-  body {
-    background: var(--bg);
   }
 
   .home,
@@ -920,7 +1029,7 @@ svg {
   }
 
   .sheet::backdrop {
-    background: rgb(0 0 0 / 0.2);
+    background: rgb(46 62 68 / 0.2);
   }
 }
 
