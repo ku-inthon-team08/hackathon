@@ -1316,8 +1316,10 @@ svg.lucide {
   gap: 2px;
   width: 96px;
   height: 96px;
+  border: 0;
   border-radius: 50%;
   background: var(--primary);
+  cursor: pointer;
   box-shadow:
     0 8px 24px var(--primary-glow),
     var(--shadow-md);
@@ -1449,4 +1451,39 @@ svg.lucide {
     transition: none !important;
     animation: none !important;
   }
+}
+
+/* Numbered shelter markers; the same number leads each row in the shelter list. */
+.place-pin {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: var(--shadow-md);
+  color: var(--on-primary);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.map > .place-pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.place-rank {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 12px;
+  font-weight: 700;
 }
