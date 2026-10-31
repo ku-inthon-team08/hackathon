@@ -9,7 +9,7 @@ export type FeatureCollection<G, P> = {
 };
 
 export interface Shelter {
-  id: number;
+  id: string;
   kind: PlaceKind;
   name: string;
   lat: number;
@@ -28,7 +28,7 @@ export interface NearbyShelters {
 export interface PlaceDetail {
   mock: boolean;
   place: {
-    id: number;
+    id: string;
     kind: PlaceKind;
     name: string;
     address: string | null;

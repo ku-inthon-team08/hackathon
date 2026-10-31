@@ -15,13 +15,13 @@ import { Sheet } from "./Sheet";
 import { LoadFailed, Mascot, SkeletonRows } from "./ui";
 
 export type SheetTarget = NamedPlace &
-  ({ placeId: number } | { placeId?: undefined; crowd: { label: string; observedAt: string } });
+  ({ placeId: string } | { placeId?: undefined; crowd: { label: string; observedAt: string } });
 
 function EstimatedTag({ confidence }: { confidence: number }) {
   return confidence < LOW_CONFIDENCE ? <span className="tag">추정값</span> : null;
 }
 
-function Evidence({ placeId, expanded }: { placeId: number; expanded: boolean }) {
+function Evidence({ placeId, expanded }: { placeId: string; expanded: boolean }) {
   const load = useCallback(() => placeDetail(placeId), [placeId]);
   const { data, error, loading, refresh } = useAsync(load);
   const preview = usePreview();
