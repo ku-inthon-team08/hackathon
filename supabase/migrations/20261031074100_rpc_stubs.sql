@@ -1,6 +1,9 @@
 -- FE가 supabase.rpc()로 부르는 함수들
 -- 지금은 응답 형식을 맞추기 위한 가짜 데이터(mock: true)를 돌려준다. data_status()만 실제 데이터.
 -- 실제 로직이 준비되면 새 마이그레이션에서 같은 이름·인자로 create or replace 해서 본문만 바꾼다.
+-- 도로망·센서·경로·fetch_log 테이블에는 앱(anon) 읽기 정책이 없으므로, 이들을 읽는 실제 RPC는 security definer로 만든다.
+-- (hotspots·places·congestion_obs·edge_exposure만 anon 직접 읽기가 허용된다)
+-- 테이블 좌표는 geometry(4326)라서 m 단위 거리는 geom::geography로 바꿔 계산한다.
 
 -- ───────────── 공통 계산 함수 (실제 로직에서도 그대로 사용) ─────────────
 
@@ -68,7 +71,8 @@ create or replace function public.nearby_shelters(
 language sql stable
 set search_path = public, extensions
 as $$
-  -- TODO(BE): places + edge_exposure로 실제 계산. 지금은 현재 위치 둘레에 가짜 쉼터를 놓는다
+  -- TODO(BE): places + 주변 edge_exposure로 실제 계산. places에 운영시간 컬럼이 없어 is_open은 아직 늘 true가 된다.
+  -- 지금은 현재 위치 둘레에 가짜 쉼터를 놓는다
   with mock (n, kind, name, dist_m, noise_n, light_n, crowd_n, is_open) as (
     values
       (1, 'library', '샘플 구립도서관', 240, 0.10, 0.20, 0.10, true),
@@ -87,7 +91,7 @@ as $$
   select jsonb_build_object(
     'mock', true,
     'items', coalesce(jsonb_agg(jsonb_build_object(
-      'id',         900000 + n,
+      'id',         'mock-' || n,
       'kind',       kind,
       'name',       name,
       'lat',        round((lat + dist_m * cos(bearing) / 111320)::numeric, 6),
@@ -103,17 +107,18 @@ as $$
 $$;
 
 -- 장소 상세: 혼잡·소음·조도 근거
-create or replace function public.place_detail(place_id bigint)
+create or replace function public.place_detail(place_id text)
 returns jsonb
 language sql stable
 set search_path = public, extensions
 as $$
-  -- TODO(BE): places + 가까운 sensor_obs·congestion_obs에서 근거를 만든다
+  -- TODO(BE): places + 가까운 sensor_obs · latest_congestion에서 근거를 만든다.
+  -- places에 주소·운영시간 컬럼이 없어 address·open_info는 실제 데이터에서 null이 된다
   select jsonb_build_object(
     'mock', true,
     'place', jsonb_build_object(
       'id',        place_id,
-      'kind',      case when place_id % 2 = 0 then 'park' else 'library' end,
+      'kind',      case when right(place_id, 1) in ('0', '2', '4', '6', '8') then 'park' else 'library' end,
       'name',      '샘플 장소 ' || place_id,
       'address',   '서울특별시 (샘플 주소)',
       'open_info', jsonb_build_object('open', '09:00', 'close', '22:00', 'closed', '매주 월요일')
@@ -148,7 +153,8 @@ create or replace function public.quiet_routes(
 language sql stable
 set search_path = public, extensions
 as $$
-  -- TODO(BE): road_edges + edge_exposure에서 비용 L + L×S×k로 k를 바꿔 가며 pgRouting 계산. 지금은 직선과 우회선
+  -- TODO(BE): road_edges(is_walkable) + edge_exposure에서 비용 L + L×S×k로 k를 바꿔 가며 pgRouting 계산하고,
+  -- 결과를 route_requests · route_candidates에 저장한다. 그때는 volatile로 바꾼다. 지금은 직선과 우회선
   with mock (kind, label, detour, noise_n, light_n, crowd_n) as (
     values
       ('shortest', '최단',        0.00, 0.75, 0.50, 0.70),
@@ -197,7 +203,8 @@ create or replace function public.best_times(
 language sql stable
 set search_path = public, extensions
 as $$
-  -- TODO(BE): 가장 가까운 hotspots의 congestion_forecast + sensor_profile로 계산. 지금은 시간대별 고정 패턴
+  -- TODO(BE): 가장 가까운 hotspots의 혼잡도로 계산. 예측값을 담을 테이블이 아직 없어,
+  -- citydata 예측(FCST_PPLTN)을 저장할 곳을 정하거나 congestion_obs 과거값의 시간대 평균을 쓴다. 지금은 시간대별 고정 패턴
   with slots as (
     select t,
            case
@@ -243,7 +250,8 @@ create or replace function public.map_layers(
 language sql stable
 set search_path = public, extensions
 as $$
-  -- TODO(BE): road_edges·edge_exposure, sensors·sensor_obs, hotspots·congestion_obs에서 읽는다.
+  -- TODO(BE): road_edges·edge_exposure, sensors·sensor_obs, hotspots·latest_congestion에서 읽는다.
+  -- edge_exposure.confidence는 텍스트라서 응답의 0~1 숫자로 바꿔 준다(값 체계는 팀원과 맞출 것).
   -- 지금은 화면 범위에 5×5 가짜 격자를 깔고 가운데 가로·세로 줄을 시끄러운 큰길로 둔다
   with grid as (
     select g,
@@ -317,7 +325,7 @@ as $$
 $$;
 
 -- 데이터 신선도: 소스별 마지막 수집 성공 시각 (실제 데이터)
--- fetch_log는 앱에 공개하지 않으므로 security definer로 요약만 돌려준다
+-- fetch_log 원문은 앱에 공개하지 않는다. 앱에는 error를 제외한 이 요약만 돌려준다.
 create or replace function public.data_status()
 returns jsonb
 language sql stable
