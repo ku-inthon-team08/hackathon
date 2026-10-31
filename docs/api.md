@@ -64,7 +64,7 @@ BE가 하지 않는 것:
   "mock": true,
   "items": [
     {
-      "id": 900001,
+      "id": "mock-1",
       "kind": "library",
       "name": "샘플 구립도서관",
       "lat": 37.590066,
@@ -79,21 +79,24 @@ BE가 하지 않는 것:
 }
 ```
 
+- `id`는 문자열입니다(DB `places.id`가 text).
+- `places`에 운영시간 데이터가 아직 없어서, 실제 데이터로 바뀐 뒤에도 당분간 `is_open`은 늘 `true`입니다.
+
 ### place_detail
 
 장소를 눌렀을 때 보여줄 근거. 좌표는 목록(`nearby_shelters`)에 있는 값을 씁니다.
 
 | 인자 | 타입 |
 |---|---|
-| `place_id` | number |
+| `place_id` | string (목록의 `id`) |
 
 ```json
 {
   "mock": true,
   "place": {
-    "id": 900001,
+    "id": "mock-1",
     "kind": "library",
-    "name": "샘플 장소 900001",
+    "name": "샘플 장소 mock-1",
     "address": "서울특별시 (샘플 주소)",
     "open_info": { "open": "09:00", "close": "22:00", "closed": "매주 월요일" }
   },
@@ -106,6 +109,7 @@ BE가 하지 않는 것:
 ```
 
 - `distance_m`: 근거로 쓴 센서까지의 거리. `confidence`(0~1)가 낮으면 "추정값"으로 표시합니다.
+- DB `places`에 주소·운영시간 컬럼이 없어서, 실제 데이터에서는 `address`·`open_info`가 `null`입니다.
 
 ### quiet_routes
 
@@ -225,14 +229,14 @@ export type Point = { type: 'Point'; coordinates: [number, number] }
 export type FeatureCollection<G, P> = { type: 'FeatureCollection'; features: { type: 'Feature'; geometry: G; properties: P }[] }
 
 export interface Shelter {
-  id: number; kind: PlaceKind; name: string; lat: number; lng: number
+  id: string; kind: PlaceKind; name: string; lat: number; lng: number
   distance_m: number; walk_min: number; is_open: boolean; load: number; load_level: LoadLevel
 }
 export interface NearbyShelters { mock: boolean; items: Shelter[] }
 
 export interface PlaceDetail {
   mock: boolean
-  place: { id: number; kind: PlaceKind; name: string; address: string | null; open_info: Record<string, string> | null }
+  place: { id: string; kind: PlaceKind; name: string; address: string | null; open_info: Record<string, string> | null }
   evidence: {
     noise: { db: number; grade: number; observed_at: string; distance_m: number; confidence: number; source: string }
     light: { lux: number; observed_at: string; distance_m: number; confidence: number; source: string }
