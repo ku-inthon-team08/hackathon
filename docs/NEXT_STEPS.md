@@ -37,12 +37,12 @@ npm run dev
 2. [x] 수집 자동화: `pg_cron` 작업 3개 등록됨 (S-DoT 환경 1시간, 유동인구·도시데이터 10분)
 3. [ ] **`edge_exposure` 채우기** (지금 0행): 센서값 → 도로 구간 IDW 보간
 4. [ ] **RPC 진짜 로직으로 교체** (같은 이름·인자로 새 마이그레이션에서 `create or replace`)
-   `nearby_shelters` → `place_detail` → `map_layers` → `best_times` → `quiet_routes`
+       `nearby_shelters` → `place_detail` → `map_layers` → `best_times` → `quiet_routes`
 5. [ ] 정할 것: 혼잡 예측 저장 테이블 / 쉼터 운영시간 컬럼 / `confidence` 값 체계
 
 ## 🚀 마무리
 
-- [ ] Vercel 배포 (환경변수에 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_KAKAO_MAP_KEY`)
+- [ ] Vercel 배포 (환경변수에 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_KAKAO_MAP_KEY`)
 - [ ] 루트 `README.md` 채우기
 - [ ] 발표 전에 Supabase 대시보드 → Advisors에서 보안 경고 확인
 

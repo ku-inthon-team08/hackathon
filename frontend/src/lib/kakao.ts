@@ -1,7 +1,7 @@
 /// <reference types="kakao.maps.d.ts" />
 import type { NamedPlace } from "./api/types";
 
-export const KAKAO_KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
+export const KAKAO_KEY = process.env.NEXT_KAKAO_MAP_KEY;
 
 let sdk: Promise<true> | null = null;
 
@@ -32,7 +32,11 @@ export async function searchKakaoPlaces(query: string): Promise<NamedPlace[]> {
       }
       resolve(
         status === kakao.maps.services.Status.OK
-          ? results.map((r) => ({ name: r.place_name, lat: Number(r.y), lng: Number(r.x) }))
+          ? results.map((r) => ({
+              name: r.place_name,
+              lat: Number(r.y),
+              lng: Number(r.x),
+            }))
           : [],
       );
     });
