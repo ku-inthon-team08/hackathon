@@ -1,5 +1,6 @@
 "use client";
 
+import { LocateFixed, MapPin } from "lucide-react";
 import {
   useCallback,
   useDeferredValue,
@@ -7,41 +8,50 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
-  type ReactNode,
   type Ref,
 } from "react";
 import { searchPlaces } from "@/lib/api";
 import type { NamedPlace } from "@/lib/api/types";
 import { useAsync } from "@/hooks/useAsync";
 
-// A combobox: ↑/↓ move through the results, Enter picks the highlighted one (or the first),
+type Option = { kind: "leading"; label: string } | { kind: "place"; place: NamedPlace };
+
+// A combobox: ↑/↓ move through the options, Enter picks the highlighted one (or the first),
 // Esc closes the list and then restores `value`. Leaving without a pick restores it too.
 // `value` is the committed text; give the field a `key` that changes with it.
 export function PlaceField({
   label,
   hint,
-  error,
   value = "",
-  placeholder = "예: 안암역",
-  inline,
-  trailing,
+  accent,
+  placeholder = "장소 입력",
+  hideLabel,
+  clearOnFocus,
+  leading,
+  invalid,
+  describedBy,
   ref,
   onPick,
 }: {
   label: string;
   hint?: string;
-  error?: string;
   value?: string;
+  // Show the committed value in the accent colour, e.g. "현재 위치".
+  accent?: boolean;
   placeholder?: string;
-  // Label to the left of the box instead of above it.
-  inline?: boolean;
-  // A button inside the right end of the box.
-  trailing?: ReactNode;
+  hideLabel?: boolean;
+  // Empty the box on entry instead of selecting its text, so `leading` shows at once.
+  clearOnFocus?: boolean;
+  // An option offered above the results while the box is empty, e.g. 현재 위치.
+  leading?: { label: string; onPick: () => void };
+  invalid?: boolean;
+  describedBy?: string;
   ref?: Ref<HTMLInputElement>;
   onPick: (place: NamedPlace) => void;
 }) {
   const id = useId();
   const [query, setQuery] = useState(value);
+  const [focused, setFocused] = useState(false);
   const [active, setActive] = useState(-1);
   const [closed, setClosed] = useState(false);
   const focusedByPointer = useRef(false);
@@ -53,7 +63,12 @@ export function PlaceField({
   // Results still belong to an older query while typing, so Enter waits for these.
   const fresh = query === deferred && data !== undefined;
   const results = term && data ? data : [];
-  const open = !closed && results.length > 0;
+  const showLeading = Boolean(leading) && focused && !query.trim();
+  const options: Option[] = showLeading
+    ? [{ kind: "leading", label: leading!.label }]
+    : results.map((place) => ({ kind: "place", place }));
+  const open = focused && !closed && options.length > 0;
+  const empty = focused && !closed && Boolean(term) && data?.length === 0;
   const activeId = open && active >= 0 ? `${id}-option-${active}` : undefined;
 
   function change(next: string) {
@@ -62,32 +77,41 @@ export function PlaceField({
     setClosed(false);
   }
 
-  function pick(place: NamedPlace) {
-    setQuery(place.name);
+  function pick(option: Option) {
     setClosed(true);
-    onPick(place);
+    if (option.kind === "leading") {
+      leading?.onPick();
+      return;
+    }
+    setQuery(option.place.name);
+    onPick(option.place);
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     switch (event.key) {
       case "ArrowDown":
       case "ArrowUp": {
-        if (results.length === 0) return;
+        if (options.length === 0) return;
         event.preventDefault();
         setClosed(false);
         const step = event.key === "ArrowDown" ? 1 : -1;
         const start = open ? active : -1;
         // From nothing, ↓ lands on the first row and ↑ on the last; both wrap around.
         setActive(
-          start < 0 && step < 0 ? results.length - 1 : (start + step + results.length) % results.length,
+          start < 0 && step < 0 ? options.length - 1 : (start + step + options.length) % options.length,
         );
         return;
       }
       case "Enter":
+        if (showLeading) {
+          event.preventDefault();
+          pick(options[Math.max(active, 0)]);
+          return;
+        }
         // An untouched field lets Enter submit the form.
         if (!dirty) return;
         event.preventDefault();
-        if (fresh && results.length > 0) pick(results[Math.max(active, 0)]);
+        if (fresh && options.length > 0) pick(options[Math.max(active, 0)]);
         return;
       case "Escape":
         if (open) {
@@ -102,8 +126,10 @@ export function PlaceField({
   }
 
   return (
-    <div className={inline ? "field inline" : "field"}>
-      <label htmlFor={id}>{label}</label>
+    <div className={hideLabel ? "field bare" : "field"}>
+      <label htmlFor={id} className={hideLabel ? "visually-hidden" : undefined}>
+        {label}
+      </label>
       {hint && <p className="hint">{hint}</p>}
       <div className="input-wrap">
         <input
@@ -111,6 +137,7 @@ export function PlaceField({
           id={id}
           type="search"
           role="combobox"
+          className={accent && !dirty ? "accent" : undefined}
           value={query}
           placeholder={placeholder}
           autoComplete="off"
@@ -118,55 +145,68 @@ export function PlaceField({
           aria-expanded={open}
           aria-controls={`${id}-list`}
           aria-activedescendant={activeId}
-          aria-invalid={Boolean(error)}
-          aria-describedby={error ? `${id}-error` : undefined}
+          aria-invalid={invalid}
+          aria-describedby={describedBy}
           onChange={(event) => change(event.target.value)}
           onKeyDown={onKeyDown}
-          // Select everything on entry, so typing replaces the current place.
+          // Otherwise select everything on entry, so typing replaces the current place.
           onPointerDown={(event) => {
             focusedByPointer.current = document.activeElement !== event.currentTarget;
           }}
-          onFocus={(event) => event.currentTarget.select()}
+          onFocus={(event) => {
+            setFocused(true);
+            if (clearOnFocus) change("");
+            else event.currentTarget.select();
+          }}
           onMouseUp={(event) => {
-            if (focusedByPointer.current) event.preventDefault();
+            if (focusedByPointer.current && !clearOnFocus) event.preventDefault();
             focusedByPointer.current = false;
           }}
           onBlur={() => {
-            setQuery(value);
-            setActive(-1);
-            setClosed(false);
+            setFocused(false);
+            change(value);
           }}
         />
-        {trailing}
         {open && (
           <ul id={`${id}-list`} className="results" role="listbox" aria-label={`${label} 추천`}>
-            {results.map((place, i) => (
+            {options.map((option, i) => (
               <li
-                key={place.name}
+                key={option.kind === "leading" ? "leading" : `${option.place.name}-${i}`}
                 id={`${id}-option-${i}`}
                 role="option"
+                className={option.kind === "leading" ? "leading" : undefined}
                 aria-selected={i === active}
                 // Keep focus in the input so the keyboard keeps working after a click.
                 onMouseDown={(event) => event.preventDefault()}
                 onMouseEnter={() => setActive(i)}
-                onClick={() => pick(place)}
+                onClick={() => pick(option)}
               >
-                {place.name}
+                {option.kind === "leading" ? (
+                  <>
+                    <LocateFixed aria-hidden />
+                    {option.label}
+                  </>
+                ) : (
+                  <>
+                    <MapPin aria-hidden />
+                    <span className="option-text">
+                      {option.place.name}
+                      {option.place.address && (
+                        <span className="option-sub">{option.place.address}</span>
+                      )}
+                    </span>
+                  </>
+                )}
               </li>
             ))}
           </ul>
         )}
+        {empty && (
+          <p className="results results-empty" role="status">
+            &lsquo;{term}&rsquo; 검색 결과가 없어요. 역이나 장소 이름으로 찾아 보세요.
+          </p>
+        )}
       </div>
-      {error && (
-        <p id={`${id}-error`} className="error" role="alert">
-          {error}
-        </p>
-      )}
-      {term && data && data.length === 0 && (
-        <p className="hint" role="status">
-          &lsquo;{term}&rsquo; 검색 결과가 없어요. 역이나 장소 이름으로 찾아 보세요.
-        </p>
-      )}
     </div>
   );
 }

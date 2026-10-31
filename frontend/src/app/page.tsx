@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Trees } from "lucide-react";
+import { ChevronLeft, ChevronRight, Moon, Sun, Trees } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
@@ -13,6 +13,7 @@ import { dataStatus, mapLayers } from "@/lib/api";
 import { LOAD_LABEL, levelOf } from "@/lib/format";
 import { getPosition, MAP_BOUNDS } from "@/lib/location";
 import { useSensitivity } from "@/lib/storage";
+import { useTheme } from "@/lib/theme";
 import type { DataStatus, MapLayers, NamedPlace, Sensitivity } from "@/lib/api/types";
 import { useAsync } from "@/hooks/useAsync";
 
@@ -32,7 +33,7 @@ function freshness(status?: DataStatus) {
   if (ages.length === 0) return { label: "아직 수집된 데이터가 없어요", stale: false };
   const age = Math.max(...ages);
   return {
-    label: `${age}분 전 데이터`,
+    label: `${age}분 전 업데이트`,
     stale: status.sources.some((s) => !s.last_try_ok),
   };
 }
@@ -42,6 +43,23 @@ function areaSummary(layers: MapLayers | undefined, layer: Layer) {
   if (!edges?.length) return null;
   const total = edges.reduce((sum, edge) => sum + edge.properties[layer], 0);
   return LOAD_LABEL[levelOf(total / edges.length)];
+}
+
+function ThemeToggle() {
+  const [theme, setTheme] = useTheme();
+  const dark = theme === "dark";
+  return (
+    <button
+      type="button"
+      className="icon-button theme-toggle"
+      aria-label="어두운 화면"
+      aria-pressed={dark}
+      title={dark ? "밝은 화면으로" : "어두운 화면으로"}
+      onClick={() => setTheme(dark ? "light" : "dark")}
+    >
+      {dark ? <Sun aria-hidden /> : <Moon aria-hidden />}
+    </button>
+  );
 }
 
 // The refuge page sends a destination back as ?toName=&toLat=&toLng=.
@@ -123,6 +141,8 @@ function Home({
   function closeSurvey(answers?: Sensitivity) {
     onSurvey(answers);
     setSurveyOpen(false);
+    // Routes on screen were ranked for the old answers, so rank them again.
+    if (answers && plan.step === "results") planner.search(plan.from, plan.to, answers);
     // Ask for location right after the first survey, when the reason is fresh.
     if (firstVisit) getPosition().catch(() => {});
   }
@@ -177,18 +197,6 @@ function Home({
         </button>
 
         <div className="map-top">
-          <span className="chip" role="status">
-            {label}
-          </span>
-          {stale && <p className="banner">최신 데이터를 받지 못해 예전 값을 보여주고 있어요.</p>}
-          {Boolean(layers.error) && (
-            <p className="banner">
-              지금은 이 정보를 볼 수 없어요.
-              <button type="button" className="text-button" onClick={layers.refresh}>
-                다시 시도
-              </button>
-            </p>
-          )}
           {hasLayers && (
             <fieldset className="segments">
               <legend className="visually-hidden">지도 레이어</legend>
@@ -204,6 +212,21 @@ function Home({
                 </label>
               ))}
             </fieldset>
+          )}
+          <div className="map-status">
+            <ThemeToggle />
+            <span className="chip" role="status">
+              {label}
+            </span>
+          </div>
+          {stale && <p className="banner">최신 데이터를 받지 못해 예전 값을 보여주고 있어요.</p>}
+          {Boolean(layers.error) && (
+            <p className="banner">
+              지금은 이 정보를 볼 수 없어요.
+              <button type="button" className="text-button" onClick={layers.refresh}>
+                다시 시도
+              </button>
+            </p>
           )}
           {isEmpty && !layers.error && <p className="banner">지금은 이 정보를 볼 수 없어요.</p>}
           {layers.loading && !layers.data && (

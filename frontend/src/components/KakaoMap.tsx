@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { drawHeat, heatPoints, heatRamp } from "@/lib/heat";
 import type { Bounds, HotspotProps, MapLayers, Point } from "@/lib/api/types";
 import "@/lib/kakao";
+import { useTheme, type Theme } from "@/lib/theme";
 import type { Layer, MapRoute } from "./MapCanvas";
 
 const toLatLng = ([lng, lat]: [number, number]) => new kakao.maps.LatLng(lat, lng);
@@ -57,6 +58,8 @@ function useHeat(
   element: React.RefObject<HTMLDivElement | null>,
   layers: MapLayers | undefined,
   layer: Layer,
+  // The ramp comes from the level tokens, so a theme change repaints it.
+  theme: Theme,
 ) {
   useEffect(() => {
     const target = map.current;
@@ -135,7 +138,7 @@ function useHeat(
       kakao.maps.event.removeListener(target, "idle", draw);
       overlay?.setMap(null);
     };
-  }, [map, element, layers, layer]);
+  }, [map, element, layers, layer, theme]);
 }
 
 // The load heat and hotspots, plus any routes on top, with the selected one highlighted.
@@ -158,13 +161,15 @@ export function KakaoMap({
   const map = useKakaoMap(element);
   const picked = useRef(onHotspot);
   const pickedRoute = useRef(onRoutePick);
+  // Heat and route colours are read from the CSS tokens when drawn, so redraw on a theme flip.
+  const [theme] = useTheme();
 
   useEffect(() => {
     picked.current = onHotspot;
     pickedRoute.current = onRoutePick;
   }, [onHotspot, onRoutePick]);
 
-  useHeat(map, element, layers, layer);
+  useHeat(map, element, layers, layer, theme);
 
   // Picking another option must not move the view, so frame only when the trip changes.
   const trip = routes?.map((route) => `${route.id}:${route.line.coordinates.length}`).join();
@@ -229,11 +234,12 @@ export function KakaoMap({
       });
       kakao.maps.event.addListener(main, "click", () => pickedRoute.current?.(route.id));
       if (!route.selected) return [main];
-      // A pale edge keeps the selected route readable over the hottest colours.
+      // An edge in the surface colour keeps the selected route readable over the hottest
+      // colours: pale in light mode, dark in dark mode.
       const casing = new kakao.maps.Polyline({
         map: target,
         path,
-        strokeColor: "#ffffff",
+        strokeColor: token("--surface"),
         strokeWeight: 11,
         strokeOpacity: 0.9,
         zIndex: 2,
@@ -251,7 +257,7 @@ export function KakaoMap({
       lines.forEach((line) => line.setMap(null));
       pins.forEach((item) => item.setMap(null));
     };
-  }, [map, routes]);
+  }, [map, routes, theme]);
 
   return <div ref={element} className="kakao-map" />;
 }

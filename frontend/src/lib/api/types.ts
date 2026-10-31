@@ -153,4 +153,6 @@ export interface Bounds {
 }
 export interface NamedPlace extends LatLng {
   name: string;
+  // Shown under the name in search results, when the search knows it.
+  address?: string;
 }
