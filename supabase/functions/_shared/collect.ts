@@ -35,14 +35,12 @@ export function num(s: string | undefined) {
   return Number.isFinite(n) ? n : null;
 }
 
-// 수집 결과를 fetch_log에 남기고 응답을 만든다. 수집 뒤에는 도로 구간 노출값을 다시 계산한다
+// 수집 결과를 fetch_log에 남기고 응답을 만든다.
+// 도로 구간 노출값(refresh_edge_exposure)은 rpc 시간 제한을 넘어서 pg_cron이 따로 다시 계산한다
 export async function run(source: string, job: () => Promise<number>) {
   try {
     const rows = await job();
     await db.from("fetch_log").insert({ source, ok: true, rows });
-    // refresh_edge_exposure가 아직 없으면(보간 함수 미구현) 조용히 넘어간다
-    const { error } = await db.rpc("refresh_edge_exposure");
-    if (error && error.code !== "PGRST202") console.error("refresh_edge_exposure", error.message);
     return Response.json({ source, ok: true, rows });
   } catch (e) {
     const error = scrub(e instanceof Error ? e.message : String(e));
