@@ -4,16 +4,12 @@ import type {
   BestTimes,
   Bounds,
   DataStatus,
-  EdgeProps,
-  HotspotProps,
   LatLng,
-  LineString,
   LoadLevel,
   MapLayers,
   NamedPlace,
   NearbyShelters,
   PlaceDetail,
-  Point,
   QuietRoutes,
   Route,
   RouteKind,
@@ -234,128 +230,29 @@ export function bestTimes(_at: LatLng, hours = 12): Promise<BestTimes> {
   );
 }
 
-export function mapLayers(b: Bounds, sens: Sensitivity): Promise<MapLayers> {
-  const empty = () => ({ type: "FeatureCollection" as const, features: [] });
-  const line = (coordinates: [number, number][]): LineString => ({
-    type: "LineString",
-    coordinates,
-  });
-  const point = (lng: number, lat: number): Point => ({
-    type: "Point",
-    coordinates: [lng, lat],
-  });
-  return respond(
-    () => {
-      const grid = [1, 2, 3, 4, 5].map((g) => ({
-        g,
-        y: b.min_lat + ((b.max_lat - b.min_lat) * g) / 6,
-        x: b.min_lng + ((b.max_lng - b.min_lng) * g) / 6,
-      }));
-      const edge = (
-        id: number,
-        coordinates: [number, number][],
-        noise_n: number,
-        light_n: number,
-        crowd_n: number,
-      ) => {
-        const load = sensoryLoad(noise_n, light_n, crowd_n, sens);
-        const properties: EdgeProps = {
-          id,
-          noise_n,
-          light_n,
-          crowd_n,
-          load: round(load),
-          load_level: loadLevel(load),
-          confidence: 0.6,
-        };
-        return { type: "Feature" as const, geometry: line(coordinates), properties };
-      };
-      const hotspot = (properties: HotspotProps, lng: number, lat: number) => ({
-        type: "Feature" as const,
-        geometry: point(lng, lat),
-        properties,
-      });
-      return {
-        mock: true,
-        edges: {
-          type: "FeatureCollection",
-          features: [
-            ...grid.map(({ g, y }) =>
-              edge(
-                g,
-                [
-                  [b.min_lng, y],
-                  [b.max_lng, y],
-                ],
-                g === 3 ? 0.85 : 0.15 + g * 0.05,
-                g === 3 ? 0.7 : 0.2,
-                g === 3 ? 0.8 : 0.1 + g * 0.05,
-              ),
-            ),
-            ...grid.map(({ g, x }) =>
-              edge(
-                10 + g,
-                [
-                  [x, b.min_lat],
-                  [x, b.max_lat],
-                ],
-                g === 3 ? 0.75 : 0.1 + g * 0.04,
-                0.25,
-                g === 3 ? 0.65 : 0.1,
-              ),
-            ),
-          ],
-        },
-        sensors: empty(),
-        hotspots: {
-          type: "FeatureCollection",
-          features: [
-            hotspot(
-              {
-                area_cd: "POI000",
-                area_nm: "샘플 번화가",
-                crowd_level: 4,
-                crowd_label: CROWD_LABELS[3],
-                observed_at: minutesAgo(5),
-              },
-              grid[2].x,
-              grid[2].y,
-            ),
-            hotspot(
-              {
-                area_cd: "POI001",
-                area_nm: "샘플 공원",
-                crowd_level: 1,
-                crowd_label: CROWD_LABELS[0],
-                observed_at: minutesAgo(5),
-              },
-              grid[0].x,
-              grid[0].y,
-            ),
-          ],
-        },
-      };
-    },
-    () => ({ mock: true, edges: empty(), sensors: empty(), hotspots: empty() }),
-  );
+// No sample lines or hotspots: the map stays clean until real road data exists.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function mapLayers(_bounds: Bounds, _sens: Sensitivity): Promise<MapLayers> {
+  const none = () => ({ type: "FeatureCollection" as const, features: [] });
+  const empty = () => ({ mock: true, edges: none(), sensors: none(), hotspots: none() });
+  return respond(empty, empty);
 }
 
 export function dataStatus(): Promise<DataStatus> {
-  const stale = scenario() === "stale";
   const source = (name: string, age: number) => ({
     source: name,
     last_ok_at: minutesAgo(age),
     age_min: age,
-    last_try_ok: !stale,
+    last_try_ok: false,
   });
+  const empty = () => ({ mock: true, sources: [] });
+  // Only ?state=stale shows a data age, to preview the stale banner.
   return respond(
-    () => ({
-      mock: true,
-      sources: stale
-        ? [source("citydata", 95), source("sdot_env", 120)]
-        : [source("citydata", 4), source("sdot_env", 12)],
-    }),
-    () => ({ mock: true, sources: [] }),
+    () =>
+      scenario() === "stale"
+        ? { mock: true, sources: [source("citydata", 95), source("sdot_env", 120)] }
+        : empty(),
+    empty,
   );
 }
 

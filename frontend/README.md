@@ -1,11 +1,13 @@
 # Sensory Map frontend
 
 Next.js app running on local mock data. The data shapes follow `../docs/api.md`.
+With a Kakao key it shows the real map and real place search.
 
 ## Run
 
 ```bash
 npm install
+cp .env.example .env.local   # optional: add the Kakao JavaScript key
 npm run dev
 ```
 
@@ -18,6 +20,7 @@ src/
 ├─ hooks/        useAsync, usePreview
 └─ lib/
    ├─ api/          mock data functions and types
+   ├─ kakao.ts      Kakao SDK loader, place search
    ├─ storage.ts    sensitivity, current trip, ratings
    ├─ location.ts   geolocation, map bounds
    └─ format.ts     Korean labels and formatting
