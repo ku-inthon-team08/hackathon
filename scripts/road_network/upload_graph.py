@@ -3,7 +3,9 @@
 Goes through the REST API with SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY from .env, so no
 DB password is needed. The tables come from supabase/migrations/*_init_schema.sql.
 Rows are upserted by id, so re-running is safe. Pass --replace when switching to another
-area: it deletes every road row first, and edge_exposure rows go with them (on delete cascade).
+area: it deletes every road row first, and edge_cell / edge_road_prior / edge_area rows go with
+them (on delete cascade). After uploading, run in SQL:
+select public.refresh_edge_road_prior(); select public.rebuild_edge_weights();
 
     python scripts/road_network/upload_graph.py
     python scripts/road_network/upload_graph.py --name gangnam --replace
@@ -67,7 +69,7 @@ def main():
     parser = argparse.ArgumentParser(description="Upload road_nodes / road_edges CSV to Supabase.")
     parser.add_argument("--name", default="mapo", help="file prefix used by build_graph.py")
     parser.add_argument("--data", type=Path, default=ROOT / "data" / "road_network")
-    parser.add_argument("--replace", action="store_true", help="delete all road rows (and edge_exposure) first")
+    parser.add_argument("--replace", action="store_true", help="delete all road rows (and per-edge data) first")
     args = parser.parse_args()
 
     env = read_env(ROOT / ".env")
